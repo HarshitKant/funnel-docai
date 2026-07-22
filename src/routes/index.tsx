@@ -11,13 +11,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Paste your funnel steps. FunnelDoc.ai finds the biggest drop-off, generates hypotheses, and writes diagnostic SQL — in seconds.",
+          "Paste your funnel steps. FunnelDoc.ai finds the biggest drop-off, generates hypotheses, and writes diagnostic SQL - in seconds.",
       },
-      { property: "og:title", content: "FunnelDoc.ai — Diagnose your conversion funnel" },
+      { property: "og:title", content: "FunnelDoc.ai — Diagnose your conversion funnel in 30 seconds" },
       {
         property: "og:description",
         content:
-          "Find the leak in your funnel. AI-powered diagnosis with hypotheses, fixes, and SQL.",
+          "Paste your funnel steps. FunnelDoc.ai finds the biggest drop-off, generates hypotheses, and writes diagnostic SQL - in seconds.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
