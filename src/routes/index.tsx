@@ -217,7 +217,33 @@ function FunnelDoc() {
     }
   }, [funnelData, analyzeFn]);
 
+  const submitFeedback = useCallback(() => {
+    const trimmed = feedback.trim();
+    if (!trimmed) {
+      setFeedbackError("Please share a few words before sending.");
+      return;
+    }
+    if (trimmed.length > 1000) {
+      setFeedbackError("Feedback must be under 1000 characters.");
+      return;
+    }
+    setFeedbackError(null);
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("funneldoc-feedback") : null;
+      const existing = raw ? JSON.parse(raw) : [];
+      existing.push({ text: trimmed, createdAt: new Date().toISOString() });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("funneldoc-feedback", JSON.stringify(existing));
+      }
+    } catch {
+      // Ignore storage errors; the thank-you still shows.
+    }
+    setFeedbackSubmitted(true);
+    setFeedback("");
+  }, [feedback]);
+
   const sevColor = (s: string) =>
+
     s === "critical" ? "#EF4444" : s === "high" ? "#F97316" : s === "medium" ? "#EAB308" : "#22C55E";
 
   const kz = findKillZone(funnelData);
