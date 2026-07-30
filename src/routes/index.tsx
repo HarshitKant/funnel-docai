@@ -170,9 +170,12 @@ function FunnelDoc() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"input" | "results">("input");
+  const [usedFallback, setUsedFallback] = useState(false);
+  const [loadIdx, setLoadIdx] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
 
 
   useEffect(() => {
