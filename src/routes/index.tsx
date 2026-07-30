@@ -755,7 +755,88 @@ function FunnelDoc() {
             </div>
           </div>
 
+          <div
+            style={{
+              marginBottom: 24,
+              padding: "20px",
+              borderRadius: 12,
+              border: "1px solid #E5E7EB",
+              background: "#FAFBFF",
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#4338CA", marginBottom: 4 }}>
+              Loved the diagnosis? (Or hated it?)
+            </div>
+            <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 14 }}>
+              Your feedback shapes FunnelDoc.ai. Drop a quick testimonial below.
+            </div>
+            {feedbackSubmitted ? (
+              <div
+                style={{
+                  fontSize: 14,
+                  color: "#16A34A",
+                  padding: "12px 0",
+                }}
+              >
+                Thanks! Your feedback means a lot.
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="What worked? What didn't? What should we build next?"
+                  rows={4}
+                  maxLength={1000}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                    outline: "none",
+                    color: "#111827",
+                    background: "#fff",
+                  }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginTop: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: "#9CA3AF" }}>{feedback.length}/1000</div>
+                  <button
+                    onClick={submitFeedback}
+                    disabled={!feedback.trim()}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: feedback.trim() ? "#6366F1" : "#F3F4F6",
+                      color: feedback.trim() ? "#fff" : "#9CA3AF",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      cursor: feedback.trim() ? "pointer" : "default",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Send feedback
+                  </button>
+                </div>
+                {feedbackError && (
+                  <div style={{ color: "#EF4444", fontSize: 12, marginTop: 8 }}>{feedbackError}</div>
+                )}
+              </>
+            )}
+          </div>
+
           <button
+
             onClick={() => {
               setView("input");
               setAnalysis(null);
