@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from "recharts";
 import { analyzeFunnel } from "@/lib/funnel-analyze.functions";
+import { submitTestimonial } from "@/lib/testimonials.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
