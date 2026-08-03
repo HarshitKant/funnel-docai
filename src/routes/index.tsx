@@ -221,7 +221,7 @@ function FunnelDoc() {
     }
   }, [funnelData, analyzeFn]);
 
-  const submitFeedback = useCallback(() => {
+  const submitFeedback = useCallback(async () => {
     const trimmed = feedback.trim();
     if (!trimmed) {
       setFeedbackError("Please share a few words before sending.");
@@ -232,19 +232,24 @@ function FunnelDoc() {
       return;
     }
     setFeedbackError(null);
+    setFeedbackSubmitting(true);
     try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem("funneldoc-feedback") : null;
-      const existing = raw ? JSON.parse(raw) : [];
-      existing.push({ text: trimmed, createdAt: new Date().toISOString() });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("funneldoc-feedback", JSON.stringify(existing));
-      }
-    } catch {
-      // Ignore storage errors; the thank-you still shows.
+      await submitFeedbackFn({
+        data: {
+          message: trimmed,
+          rating: feedbackRating ?? undefined,
+          pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+        },
+      });
+      setFeedbackSubmitted(true);
+      setFeedback("");
+      setFeedbackRating(null);
+    } catch (e) {
+      setFeedbackError(e instanceof Error ? e.message : "Could not submit feedback. Try again?");
+    } finally {
+      setFeedbackSubmitting(false);
     }
-    setFeedbackSubmitted(true);
-    setFeedback("");
-  }, [feedback]);
+  }, [feedback, feedbackRating, submitFeedbackFn]);
 
   const sevColor = (s: string) =>
 
