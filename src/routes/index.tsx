@@ -787,16 +787,40 @@ function FunnelDoc() {
                   padding: "12px 0",
                 }}
               >
-                Thanks! Your feedback means a lot.
+                Thanks! Your testimonial has been saved.
               </div>
             ) : (
               <>
+                <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackRating(star)}
+                      onMouseEnter={() => {}}
+                      onMouseLeave={() => {}}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        fontSize: 24,
+                        cursor: "pointer",
+                        lineHeight: 1,
+                        color: feedbackRating && star <= feedbackRating ? "#F59E0B" : "#E5E7EB",
+                      }}
+                      aria-label={`Rate ${star} out of 5`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
                   placeholder="What worked? What didn't? What should we build next?"
                   rows={4}
                   maxLength={1000}
+                  disabled={feedbackSubmitting}
                   style={{
                     width: "100%",
                     padding: "12px",
@@ -821,20 +845,20 @@ function FunnelDoc() {
                   <div style={{ fontSize: 11, color: "#9CA3AF" }}>{feedback.length}/1000</div>
                   <button
                     onClick={submitFeedback}
-                    disabled={!feedback.trim()}
+                    disabled={!feedback.trim() || feedbackSubmitting}
                     style={{
                       padding: "8px 16px",
                       borderRadius: 6,
                       border: "none",
-                      background: feedback.trim() ? "#6366F1" : "#F3F4F6",
-                      color: feedback.trim() ? "#fff" : "#9CA3AF",
+                      background: feedback.trim() && !feedbackSubmitting ? "#6366F1" : "#F3F4F6",
+                      color: feedback.trim() && !feedbackSubmitting ? "#fff" : "#9CA3AF",
                       fontSize: 13,
                       fontWeight: 500,
-                      cursor: feedback.trim() ? "pointer" : "default",
+                      cursor: feedback.trim() && !feedbackSubmitting ? "pointer" : "default",
                       fontFamily: "inherit",
                     }}
                   >
-                    Send feedback
+                    {feedbackSubmitting ? "Saving..." : "Send feedback"}
                   </button>
                 </div>
                 {feedbackError && (
