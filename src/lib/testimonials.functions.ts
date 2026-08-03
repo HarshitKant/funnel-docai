@@ -23,3 +23,16 @@ export const submitTestimonial = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+export const getTestimonials = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("testimonials")
+    .select("id, message, rating, source, page_url, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return data ?? [];
+});
