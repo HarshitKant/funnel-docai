@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer } from "recharts";
 import { analyzeFunnel } from "@/lib/funnel-analyze.functions";
+import { submitTestimonial } from "@/lib/testimonials.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -161,6 +162,7 @@ const LOADING_MSGS = [
 
 function FunnelDoc() {
   const analyzeFn = useServerFn(analyzeFunnel);
+  const submitFeedbackFn = useServerFn(submitTestimonial);
   const [steps, setSteps] = useState<Step[]>([
     { step: "", users: "" },
     { step: "", users: "" },
@@ -173,7 +175,9 @@ function FunnelDoc() {
   const [usedFallback, setUsedFallback] = useState(false);
   const [loadIdx, setLoadIdx] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
 
@@ -217,7 +221,7 @@ function FunnelDoc() {
     }
   }, [funnelData, analyzeFn]);
 
-  const submitFeedback = useCallback(() => {
+  const submitFeedback = useCallback(async () => {
     const trimmed = feedback.trim();
     if (!trimmed) {
       setFeedbackError("Please share a few words before sending.");
@@ -228,19 +232,24 @@ function FunnelDoc() {
       return;
     }
     setFeedbackError(null);
+    setFeedbackSubmitting(true);
     try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem("funneldoc-feedback") : null;
-      const existing = raw ? JSON.parse(raw) : [];
-      existing.push({ text: trimmed, createdAt: new Date().toISOString() });
-      if (typeof window !== "undefined") {
-        localStorage.setItem("funneldoc-feedback", JSON.stringify(existing));
-      }
-    } catch {
-      // Ignore storage errors; the thank-you still shows.
+      await submitFeedbackFn({
+        data: {
+          message: trimmed,
+          rating: feedbackRating ?? undefined,
+          pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+        },
+      });
+      setFeedbackSubmitted(true);
+      setFeedback("");
+      setFeedbackRating(null);
+    } catch (e) {
+      setFeedbackError(e instanceof Error ? e.message : "Could not submit feedback. Try again?");
+    } finally {
+      setFeedbackSubmitting(false);
     }
-    setFeedbackSubmitted(true);
-    setFeedback("");
-  }, [feedback]);
+  }, [feedback, feedbackRating, submitFeedbackFn]);
 
   const sevColor = (s: string) =>
 
@@ -778,16 +787,40 @@ function FunnelDoc() {
                   padding: "12px 0",
                 }}
               >
-                Thanks! Your feedback means a lot.
+                Thanks! Your testimonial has been saved.
               </div>
             ) : (
               <>
+                <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackRating(star)}
+                      onMouseEnter={() => {}}
+                      onMouseLeave={() => {}}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        fontSize: 24,
+                        cursor: "pointer",
+                        lineHeight: 1,
+                        color: feedbackRating && star <= feedbackRating ? "#F59E0B" : "#E5E7EB",
+                      }}
+                      aria-label={`Rate ${star} out of 5`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
                   placeholder="What worked? What didn't? What should we build next?"
                   rows={4}
                   maxLength={1000}
+                  disabled={feedbackSubmitting}
                   style={{
                     width: "100%",
                     padding: "12px",
@@ -812,20 +845,20 @@ function FunnelDoc() {
                   <div style={{ fontSize: 11, color: "#9CA3AF" }}>{feedback.length}/1000</div>
                   <button
                     onClick={submitFeedback}
-                    disabled={!feedback.trim()}
+                    disabled={!feedback.trim() || feedbackSubmitting}
                     style={{
                       padding: "8px 16px",
                       borderRadius: 6,
                       border: "none",
-                      background: feedback.trim() ? "#6366F1" : "#F3F4F6",
-                      color: feedback.trim() ? "#fff" : "#9CA3AF",
+                      background: feedback.trim() && !feedbackSubmitting ? "#6366F1" : "#F3F4F6",
+                      color: feedback.trim() && !feedbackSubmitting ? "#fff" : "#9CA3AF",
                       fontSize: 13,
                       fontWeight: 500,
-                      cursor: feedback.trim() ? "pointer" : "default",
+                      cursor: feedback.trim() && !feedbackSubmitting ? "pointer" : "default",
                       fontFamily: "inherit",
                     }}
                   >
-                    Send feedback
+                    {feedbackSubmitting ? "Saving..." : "Send feedback"}
                   </button>
                 </div>
                 {feedbackError && (
