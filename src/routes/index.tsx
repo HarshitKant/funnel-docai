@@ -903,6 +903,19 @@ function FunnelDoc() {
             <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
               I've been the human version of this tool. Now it runs in 30 seconds instead of 2 days.
             </div>
+            <div style={{ marginTop: 12 }}>
+              <a
+                href="/testimonials"
+                style={{
+                  fontSize: 12,
+                  color: "#6366F1",
+                  textDecoration: "none",
+                  fontWeight: 500,
+                }}
+              >
+                View testimonials →
+              </a>
+            </div>
           </div>
         </div>
       )}
