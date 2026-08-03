@@ -162,6 +162,7 @@ const LOADING_MSGS = [
 
 function FunnelDoc() {
   const analyzeFn = useServerFn(analyzeFunnel);
+  const submitFeedbackFn = useServerFn(submitTestimonial);
   const [steps, setSteps] = useState<Step[]>([
     { step: "", users: "" },
     { step: "", users: "" },
@@ -174,7 +175,9 @@ function FunnelDoc() {
   const [usedFallback, setUsedFallback] = useState(false);
   const [loadIdx, setLoadIdx] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
 
