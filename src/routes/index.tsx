@@ -87,10 +87,10 @@ const SAMPLE_FUNNEL: Step[] = [
 const SAMPLE_CONTEXT: BizContext = {
   business: "A consumer fintech app for sending money abroad with low fees.",
   customer: "Migrant workers aged 25-45 sending money home monthly.",
-  model: "Transaction fee per transfer",
+  model: "",
   goal: "Complete first transaction",
-  cycle: "2-5 days from signup to first transfer",
-  extra: "KYC is required by regulation before any transfer.",
+  cycle: "",
+  extra: "",
 };
 
 const CONTEXT_FIELDS: {
@@ -102,33 +102,20 @@ const CONTEXT_FIELDS: {
 }[] = [
   {
     key: "business",
-    label: "What does your product / business do?",
+    label: "What does your product/business do?",
     placeholder: "e.g. A consumer fintech app for sending money abroad with low fees",
     multiline: true,
   },
   {
     key: "customer",
-    label: "Who is your target customer?",
+    label: "Who is the target customer?",
     placeholder: "e.g. Migrant workers aged 25-45 sending money home monthly",
     multiline: true,
   },
-  { key: "model", label: "Business model", placeholder: "e.g. Transaction fee per transfer" },
   {
     key: "goal",
-    label: "Primary conversion goal",
+    label: "What is the primary conversion goal?",
     placeholder: "e.g. Complete first transaction",
-  },
-  {
-    key: "cycle",
-    label: "Typical conversion cycle",
-    placeholder: "e.g. 2-5 days from signup to first transfer",
-  },
-  {
-    key: "extra",
-    label: "Additional context (optional)",
-    placeholder: "Anything else worth knowing — seasonality, regulation, recent changes…",
-    multiline: true,
-    optional: true,
   },
 ];
 
