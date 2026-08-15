@@ -142,7 +142,7 @@ function findKillZone(d: FunnelPoint[]) {
   return dr.length ? dr.reduce((m, x) => (parseFloat(x.drop) > parseFloat(m.drop) ? x : m), dr[0]) : null;
 }
 
-function generateFallback(data: FunnelPoint[]): Analysis {
+function generateFallback(data: FunnelPoint[], ctx: BizContext): Analysis {
   const drops = computeDropoffs(data);
   const killDrop = drops.reduce((m, x) => (parseFloat(x.drop) > parseFloat(m.drop) ? x : m), drops[0]);
   const overall =
@@ -160,15 +160,43 @@ function generateFallback(data: FunnelPoint[]): Analysis {
             ? "medium"
             : "low",
   }));
+  const provided = Object.values(ctx).filter((v) => v.trim()).length;
   return {
     overall_conversion: overall,
+    observation: `Across ${data.length} recorded steps, ${data[0].users.toLocaleString()} users entered at "${data[0].step}" and ${data[data.length - 1].users.toLocaleString()} reached "${data[data.length - 1].step}" (${overall} end-to-end). The largest single-step loss is ${killDrop.from} → ${killDrop.to}, where ${killDrop.drop}% of users are lost. These figures are calculated directly from the numbers you entered.`,
+    business_context_considered:
+      provided === 0
+        ? "No business context was provided, so this diagnosis is based only on the raw funnel numbers. Adding context would materially sharpen the hypotheses."
+        : `Context used: ${[ctx.business && `product — ${ctx.business}`, ctx.customer && `customer — ${ctx.customer}`, ctx.model && `model — ${ctx.model}`, ctx.goal && `goal — ${ctx.goal}`, ctx.cycle && `cycle — ${ctx.cycle}`, ctx.extra && `notes — ${ctx.extra}`]
+            .filter(Boolean)
+            .join("; ")}.`,
+    assumptions: [
+      "The step counts represent unique users, not sessions or events.",
+      "All steps are sequential and users must pass each step in order.",
+      "The data covers a single, representative time period with no tracking gaps.",
+    ],
+    missing_information: [
+      "Time period covered and whether volumes are seasonal or campaign-driven.",
+      "Segment breakdowns (device, geography, traffic source, new vs returning).",
+      "Instrumentation quality — whether any step is under- or double-counted.",
+      "Qualitative signals: session recordings, support tickets, or survey responses at the drop-off step.",
+    ],
+    confidence: {
+      level: provided >= 4 ? "Medium" : "Low",
+      reason:
+        provided >= 4
+          ? "Business context was supplied, but hypotheses still rest on aggregate counts with no segment-level or behavioural data to test against."
+          : "Only aggregate step counts were available, with little or no business context, so hypotheses are broad and unvalidated.",
+    },
+    next_investigation: `Segment the ${killDrop.from} → ${killDrop.to} pass-through rate by device, traffic source and geography over the last 14 days. If one segment carries most of the loss, the cause is likely technical or audience-specific; if the loss is uniform, the step itself is the friction.`,
     kill_zone: {
       from: killDrop.from,
       to: killDrop.to,
       drop_pct: killDrop.drop + "%",
-      insight: `${killDrop.drop}% of users drop off between ${killDrop.from} and ${killDrop.to}. These are users who showed intent by reaching ${killDrop.from} but hit a wall. This is the highest-leverage fix in your funnel.`,
+      insight: `${killDrop.drop}% of users drop off between ${killDrop.from} and ${killDrop.to}. These are users who showed intent by reaching ${killDrop.from} but hit a wall. This is likely the highest-leverage place to investigate first.`,
     },
     steps: stepsAnalysis,
+
     segments_to_check: [
       "Device type (mobile vs desktop)",
       "Geography / region",
