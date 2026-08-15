@@ -422,7 +422,7 @@ function FunnelDoc() {
           <span style={{ color: "#6366F1" }}>.</span>ai
         </div>
         <div style={{ fontSize: 14, color: "#6B7280", marginTop: 6, maxWidth: 500, margin: "6px auto 0" }}>
-          Paste your funnel. Find the leak. Fix the revenue. In 30 seconds, not 2 days.
+          FunnelDoc separates what your data shows from what it doesn’t prove.
         </div>
       </div>
 
