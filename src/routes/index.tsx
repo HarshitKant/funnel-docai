@@ -127,6 +127,29 @@ const CONTEXT_FIELDS: {
   },
 ];
 
+const factTag = {
+  padding: "2px 8px",
+  borderRadius: 10,
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: "0.3px",
+  textTransform: "uppercase" as const,
+  color: "#0F766E",
+  background: "#CCFBF1",
+  border: "1px solid #99F6E4",
+};
+
+const aiTag = {
+  ...factTag,
+  color: "#6D28D9",
+  background: "#EDE9FE",
+  border: "1px solid #DDD6FE",
+};
+
+const confColor = (l: string) =>
+  l === "High" ? "#16A34A" : l === "Medium" ? "#B45309" : "#DC2626";
+const confBg = (l: string) => (l === "High" ? "#DCFCE7" : l === "Medium" ? "#FEF3C7" : "#FEE2E2");
+
 
 function computeDropoffs(d: FunnelPoint[]) {
   return d.slice(1).map((s, i) => {
