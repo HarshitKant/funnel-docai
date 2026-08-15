@@ -416,6 +416,99 @@ function FunnelDoc() {
         <div>
           <div
             style={{
+              border: "1px solid #E5E7EB",
+              borderRadius: 10,
+              marginBottom: 20,
+              overflow: "hidden",
+            }}
+          >
+            <button
+              onClick={() => setCtxOpen((p) => !p)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 14px",
+                background: "#F9FAFB",
+                border: "none",
+                borderBottom: ctxOpen ? "1px solid #E5E7EB" : "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textAlign: "left",
+              }}
+            >
+              <span>
+                <span style={{ fontSize: 15, fontWeight: 500, color: "#111827" }}>
+                  Business context
+                </span>
+                <span style={{ fontSize: 12, color: "#9CA3AF", marginLeft: 8 }}>
+                  the more you share, the sharper the diagnosis
+                </span>
+              </span>
+              <span style={{ fontSize: 12, color: "#6366F1" }}>{ctxOpen ? "Hide" : "Show"}</span>
+            </button>
+
+            {ctxOpen && (
+              <div style={{ padding: 14, display: "grid", gap: 12 }}>
+                {CONTEXT_FIELDS.map((f) => (
+                  <div key={f.key}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "#6B7280",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {f.label}
+                    </label>
+                    {f.multiline ? (
+                      <textarea
+                        value={ctx[f.key]}
+                        onChange={(e) => updateCtx(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        rows={2}
+                        style={{
+                          width: "100%",
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          border: "1px solid #E5E7EB",
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          resize: "vertical",
+                          outline: "none",
+                          color: "#111827",
+                          background: "#fff",
+                        }}
+                      />
+                    ) : (
+                      <input
+                        value={ctx[f.key]}
+                        onChange={(e) => updateCtx(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        style={{
+                          width: "100%",
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          border: "1px solid #E5E7EB",
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          outline: "none",
+                          color: "#111827",
+                          background: "#fff",
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
