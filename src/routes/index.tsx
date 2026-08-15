@@ -87,10 +87,10 @@ const SAMPLE_FUNNEL: Step[] = [
 const SAMPLE_CONTEXT: BizContext = {
   business: "A consumer fintech app for sending money abroad with low fees.",
   customer: "Migrant workers aged 25-45 sending money home monthly.",
-  model: "Transaction fee per transfer",
+  model: "",
   goal: "Complete first transaction",
-  cycle: "2-5 days from signup to first transfer",
-  extra: "KYC is required by regulation before any transfer.",
+  cycle: "",
+  extra: "",
 };
 
 const CONTEXT_FIELDS: {
