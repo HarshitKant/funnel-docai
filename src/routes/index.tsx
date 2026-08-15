@@ -790,7 +790,7 @@ function FunnelDoc() {
               lineHeight: 1.6,
             }}
           >
-            <span style={{ fontWeight: 600 }}>Kill zone: </span>
+            <span style={{ fontWeight: 600 }}>Largest measured drop: </span>
             {analysis.kill_zone.insight}
           </div>
 
