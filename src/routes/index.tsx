@@ -913,7 +913,15 @@ function FunnelDoc() {
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Top 3 hypotheses</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Top 3 hypotheses</div>
+              <span style={aiTag}>AI-generated</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 8, lineHeight: 1.6 }}>
+              These are possible explanations, not findings. Validate each one against your data
+              before acting.
+            </div>
+
             {analysis.hypotheses.map((h, i) => (
               <div
                 key={i}
