@@ -482,10 +482,10 @@ function FunnelDoc() {
             >
               <span>
                 <span style={{ fontSize: 15, fontWeight: 500, color: "#111827" }}>
-                  Business context
+                  Business Context
                 </span>
                 <span style={{ fontSize: 12, color: "#9CA3AF", marginLeft: 8 }}>
-                  the more you share, the sharper the diagnosis
+                  Help FunnelDoc understand what these numbers actually mean.
                 </span>
               </span>
               <span style={{ fontSize: 12, color: "#6366F1" }}>{ctxOpen ? "Hide" : "Show"}</span>
