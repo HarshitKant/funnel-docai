@@ -794,49 +794,116 @@ function FunnelDoc() {
             {analysis.kill_zone.insight}
           </div>
 
-          {analysis.confidence && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #E5E7EB",
-                background: "#F9FAFB",
-                marginBottom: 16,
-              }}
-            >
-              <span
+          {(() => {
+            const readiness =
+              analysis.evidence_readiness ??
+              (analysis.confidence
+                ? {
+                    level:
+                      analysis.confidence.level === "High"
+                        ? "Strong"
+                        : analysis.confidence.level === "Medium"
+                          ? "Partial"
+                          : "Weak",
+                    reason: analysis.confidence.reason,
+                  }
+                : null);
+            if (!readiness) return null;
+            return (
+              <div
                 style={{
-                  padding: "3px 10px",
-                  borderRadius: 12,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: confColor(analysis.confidence.level),
-                  background: confBg(analysis.confidence.level),
-                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #E5E7EB",
+                  background: "#F9FAFB",
+                  marginBottom: 16,
                 }}
               >
-                {analysis.confidence.level} confidence
-              </span>
-              <span style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>
-                {analysis.confidence.reason}
-              </span>
-            </div>
-          )}
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 12,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: confColor(readiness.level),
+                    background: confBg(readiness.level),
+                    flexShrink: 0,
+                  }}
+                >
+                  Evidence readiness: {readiness.level}
+                </span>
+                <span style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>
+                  {readiness.reason}
+                </span>
+              </div>
+            );
+          })()}
 
-          {analysis.observation && (
+          {analysis.data_shows?.length ? (
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>Observation from the funnel data</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>What the data shows</div>
+                <span style={factTag}>Calculated</span>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 16,
+                  fontSize: 13,
+                  color: "#6B7280",
+                  lineHeight: 1.7,
+                }}
+              >
+                {analysis.data_shows.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          ) : analysis.observation ? (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>What the data shows</div>
                 <span style={factTag}>Calculated</span>
               </div>
               <div style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7 }}>
                 {analysis.observation}
               </div>
             </div>
-          )}
+          ) : null}
+
+          {analysis.data_does_not_prove?.length ? (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: "1px solid #FECACA",
+                background: "#FEF2F2",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#991B1B" }}>
+                  What the data does NOT prove
+                </div>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 16,
+                  fontSize: 13,
+                  color: "#991B1B",
+                  lineHeight: 1.7,
+                }}
+              >
+                {analysis.data_does_not_prove.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {analysis.business_context_considered && (
             <div style={{ marginBottom: 16 }}>
