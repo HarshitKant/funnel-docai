@@ -203,26 +203,39 @@ function generateFallback(data: FunnelPoint[], ctx: BizContext): Analysis {
       "The step counts represent unique users, not sessions or events.",
       "All steps are sequential and users must pass each step in order.",
       "The data covers a single, representative time period with no tracking gaps.",
+      "No step is intentionally restrictive (e.g. eligibility or compliance gating) unless stated in your context.",
     ],
-    missing_information: [
+    missing_evidence: [
       "Time period covered and whether volumes are seasonal or campaign-driven.",
       "Segment breakdowns (device, geography, traffic source, new vs returning).",
       "Instrumentation quality — whether any step is under- or double-counted.",
-      "Qualitative signals: session recordings, support tickets, or survey responses at the drop-off step.",
+      "Qualitative signals: session recordings, support tickets or survey responses at the drop-off step.",
     ],
-    confidence: {
-      level: provided >= 4 ? "Medium" : "Low",
+    evidence_readiness: {
+      level: provided >= 4 ? "Partial" : "Weak",
       reason:
         provided >= 4
-          ? "Business context was supplied, but hypotheses still rest on aggregate counts with no segment-level or behavioural data to test against."
-          : "Only aggregate step counts were available, with little or no business context, so hypotheses are broad and unvalidated.",
+          ? "Business context was supplied, but the analysis still rests on aggregate counts with no segment-level, time-series or behavioural data to test against."
+          : "Only aggregate step counts were available, with little or no business context, so nothing here is yet strong enough to act on.",
     },
-    next_investigation: `Segment the ${killDrop.from} → ${killDrop.to} pass-through rate by device, traffic source and geography over the last 14 days. If one segment carries most of the loss, the cause is likely technical or audience-specific; if the loss is uniform, the step itself is the friction.`,
+    data_shows: [
+      `${data[0].users.toLocaleString()} users entered at "${data[0].step}" and ${data[data.length - 1].users.toLocaleString()} reached "${data[data.length - 1].step}" — ${overall} end-to-end.`,
+      `The largest measured single-step loss is ${killDrop.from} → ${killDrop.to} at ${killDrop.drop}%.`,
+      `Counts decline monotonically across the ${data.length} steps you entered, so no step gains users.`,
+      `Each transition's pass-through rate is fixed by the numbers supplied: ${stepsAnalysis.map((s) => `${s.from}→${s.to} -${s.drop_pct}`).join(", ")}.`,
+    ],
+    data_does_not_prove: [
+      `That ${killDrop.from} → ${killDrop.to} is the biggest business problem — the largest percentage drop is not automatically the largest revenue or value loss.`,
+      "Any cause for the drop-offs: friction, pricing, technical failure and audience mismatch are all still equally unproven.",
+      "That the users lost were qualified or intended to convert at all.",
+      "That the pattern is stable over time — a single snapshot cannot separate a trend from a one-off.",
+    ],
+    investigate_first: `Before changing anything, check whether the ${killDrop.from} → ${killDrop.to} loss is concentrated or uniform: segment that pass-through rate by device, traffic source and geography over the last 14 days, and compare it against the previous period. A concentrated loss points to a technical or audience-specific cause; a uniform, stable loss suggests the step is doing what the business intends and the leverage lies elsewhere.`,
     kill_zone: {
       from: killDrop.from,
       to: killDrop.to,
       drop_pct: killDrop.drop + "%",
-      insight: `${killDrop.drop}% of users drop off between ${killDrop.from} and ${killDrop.to}. These are users who showed intent by reaching ${killDrop.from} but hit a wall. This is likely the highest-leverage place to investigate first.`,
+      insight: `${killDrop.drop}% of users are lost between ${killDrop.from} and ${killDrop.to} — the largest measured drop in this funnel. That makes it the first place to look, not automatically the biggest business problem: this step may be gating users intentionally.`,
     },
     steps: stepsAnalysis,
 
