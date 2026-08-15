@@ -279,8 +279,10 @@ function FunnelDoc() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<BizContext>({ ...EMPTY_CONTEXT });
+  const [ctxOpen, setCtxOpen] = useState(true);
 
-
+  const updateCtx = (k: keyof BizContext, v: string) => setCtx((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
     if (!loading) return;
@@ -292,7 +294,10 @@ function FunnelDoc() {
   const removeStep = (i: number) => setSteps((p) => p.filter((_, idx) => idx !== i));
   const updateStep = (i: number, f: keyof Step, v: string) =>
     setSteps((p) => p.map((s, idx) => (idx === i ? { ...s, [f]: v } : s)));
-  const loadSample = () => setSteps(SAMPLE_FUNNEL.map((s) => ({ ...s })));
+  const loadSample = () => {
+    setSteps(SAMPLE_FUNNEL.map((s) => ({ ...s })));
+    setCtx({ ...SAMPLE_CONTEXT });
+  };
 
   const funnelData: FunnelPoint[] = steps
     .filter((s) => s.step && s.users)
@@ -308,18 +313,19 @@ function FunnelDoc() {
     setError(null);
     setUsedFallback(false);
     try {
-      const parsed = await analyzeFn({ data: { steps: funnelData } });
+      const parsed = await analyzeFn({ data: { steps: funnelData, context: ctx } });
       setAnalysis(parsed as Analysis);
       setView("results");
     } catch (e) {
       console.error("AI error, using fallback:", e);
-      setAnalysis(generateFallback(funnelData));
+      setAnalysis(generateFallback(funnelData, ctx));
       setUsedFallback(true);
       setView("results");
     } finally {
       setLoading(false);
     }
-  }, [funnelData, analyzeFn]);
+  }, [funnelData, analyzeFn, ctx]);
+
 
   const submitFeedback = useCallback(async () => {
     const trimmed = feedback.trim();
