@@ -152,8 +152,9 @@ const aiTag = {
 };
 
 const confColor = (l: string) =>
-  l === "High" ? "#16A34A" : l === "Medium" ? "#B45309" : "#DC2626";
-const confBg = (l: string) => (l === "High" ? "#DCFCE7" : l === "Medium" ? "#FEF3C7" : "#FEE2E2");
+  l === "High" || l === "Strong" ? "#16A34A" : l === "Medium" || l === "Partial" ? "#B45309" : "#DC2626";
+const confBg = (l: string) =>
+  l === "High" || l === "Strong" ? "#DCFCE7" : l === "Medium" || l === "Partial" ? "#FEF3C7" : "#FEE2E2";
 
 
 function computeDropoffs(d: FunnelPoint[]) {
