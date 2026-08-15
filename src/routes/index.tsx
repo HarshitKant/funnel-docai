@@ -63,8 +63,13 @@ type Analysis = {
   }[];
   assumptions?: string[];
   missing_information?: string[];
+  missing_evidence?: string[];
   confidence?: { level: string; reason: string };
+  evidence_readiness?: { level: string; reason: string };
+  data_shows?: string[];
+  data_does_not_prove?: string[];
   next_investigation?: string;
+  investigate_first?: string;
   fixes: { title: string; detail: string; hypothesis_link: number; expected_impact: string }[];
   sql_query: string;
   sql_explanation: string;
@@ -147,8 +152,9 @@ const aiTag = {
 };
 
 const confColor = (l: string) =>
-  l === "High" ? "#16A34A" : l === "Medium" ? "#B45309" : "#DC2626";
-const confBg = (l: string) => (l === "High" ? "#DCFCE7" : l === "Medium" ? "#FEF3C7" : "#FEE2E2");
+  l === "High" || l === "Strong" ? "#16A34A" : l === "Medium" || l === "Partial" ? "#B45309" : "#DC2626";
+const confBg = (l: string) =>
+  l === "High" || l === "Strong" ? "#DCFCE7" : l === "Medium" || l === "Partial" ? "#FEF3C7" : "#FEE2E2";
 
 
 function computeDropoffs(d: FunnelPoint[]) {
@@ -197,26 +203,39 @@ function generateFallback(data: FunnelPoint[], ctx: BizContext): Analysis {
       "The step counts represent unique users, not sessions or events.",
       "All steps are sequential and users must pass each step in order.",
       "The data covers a single, representative time period with no tracking gaps.",
+      "No step is intentionally restrictive (e.g. eligibility or compliance gating) unless stated in your context.",
     ],
-    missing_information: [
+    missing_evidence: [
       "Time period covered and whether volumes are seasonal or campaign-driven.",
       "Segment breakdowns (device, geography, traffic source, new vs returning).",
       "Instrumentation quality — whether any step is under- or double-counted.",
-      "Qualitative signals: session recordings, support tickets, or survey responses at the drop-off step.",
+      "Qualitative signals: session recordings, support tickets or survey responses at the drop-off step.",
     ],
-    confidence: {
-      level: provided >= 4 ? "Medium" : "Low",
+    evidence_readiness: {
+      level: provided >= 4 ? "Partial" : "Weak",
       reason:
         provided >= 4
-          ? "Business context was supplied, but hypotheses still rest on aggregate counts with no segment-level or behavioural data to test against."
-          : "Only aggregate step counts were available, with little or no business context, so hypotheses are broad and unvalidated.",
+          ? "Business context was supplied, but the analysis still rests on aggregate counts with no segment-level, time-series or behavioural data to test against."
+          : "Only aggregate step counts were available, with little or no business context, so nothing here is yet strong enough to act on.",
     },
-    next_investigation: `Segment the ${killDrop.from} → ${killDrop.to} pass-through rate by device, traffic source and geography over the last 14 days. If one segment carries most of the loss, the cause is likely technical or audience-specific; if the loss is uniform, the step itself is the friction.`,
+    data_shows: [
+      `${data[0].users.toLocaleString()} users entered at "${data[0].step}" and ${data[data.length - 1].users.toLocaleString()} reached "${data[data.length - 1].step}" — ${overall} end-to-end.`,
+      `The largest measured single-step loss is ${killDrop.from} → ${killDrop.to} at ${killDrop.drop}%.`,
+      `Counts decline monotonically across the ${data.length} steps you entered, so no step gains users.`,
+      `Each transition's pass-through rate is fixed by the numbers supplied: ${stepsAnalysis.map((s) => `${s.from}→${s.to} -${s.drop_pct}`).join(", ")}.`,
+    ],
+    data_does_not_prove: [
+      `That ${killDrop.from} → ${killDrop.to} is the biggest business problem — the largest percentage drop is not automatically the largest revenue or value loss.`,
+      "Any cause for the drop-offs: friction, pricing, technical failure and audience mismatch are all still equally unproven.",
+      "That the users lost were qualified or intended to convert at all.",
+      "That the pattern is stable over time — a single snapshot cannot separate a trend from a one-off.",
+    ],
+    investigate_first: `Before changing anything, check whether the ${killDrop.from} → ${killDrop.to} loss is concentrated or uniform: segment that pass-through rate by device, traffic source and geography over the last 14 days, and compare it against the previous period. A concentrated loss points to a technical or audience-specific cause; a uniform, stable loss suggests the step is doing what the business intends and the leverage lies elsewhere.`,
     kill_zone: {
       from: killDrop.from,
       to: killDrop.to,
       drop_pct: killDrop.drop + "%",
-      insight: `${killDrop.drop}% of users drop off between ${killDrop.from} and ${killDrop.to}. These are users who showed intent by reaching ${killDrop.from} but hit a wall. This is likely the highest-leverage place to investigate first.`,
+      insight: `${killDrop.drop}% of users are lost between ${killDrop.from} and ${killDrop.to} — the largest measured drop in this funnel. That makes it the first place to look, not automatically the biggest business problem: this step may be gating users intentionally.`,
     },
     steps: stepsAnalysis,
 
@@ -771,53 +790,120 @@ function FunnelDoc() {
               lineHeight: 1.6,
             }}
           >
-            <span style={{ fontWeight: 600 }}>Kill zone: </span>
+            <span style={{ fontWeight: 600 }}>Largest measured drop: </span>
             {analysis.kill_zone.insight}
           </div>
 
-          {analysis.confidence && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #E5E7EB",
-                background: "#F9FAFB",
-                marginBottom: 16,
-              }}
-            >
-              <span
+          {(() => {
+            const readiness =
+              analysis.evidence_readiness ??
+              (analysis.confidence
+                ? {
+                    level:
+                      analysis.confidence.level === "High"
+                        ? "Strong"
+                        : analysis.confidence.level === "Medium"
+                          ? "Partial"
+                          : "Weak",
+                    reason: analysis.confidence.reason,
+                  }
+                : null);
+            if (!readiness) return null;
+            return (
+              <div
                 style={{
-                  padding: "3px 10px",
-                  borderRadius: 12,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: confColor(analysis.confidence.level),
-                  background: confBg(analysis.confidence.level),
-                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid #E5E7EB",
+                  background: "#F9FAFB",
+                  marginBottom: 16,
                 }}
               >
-                {analysis.confidence.level} confidence
-              </span>
-              <span style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>
-                {analysis.confidence.reason}
-              </span>
-            </div>
-          )}
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 12,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: confColor(readiness.level),
+                    background: confBg(readiness.level),
+                    flexShrink: 0,
+                  }}
+                >
+                  Evidence readiness: {readiness.level}
+                </span>
+                <span style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>
+                  {readiness.reason}
+                </span>
+              </div>
+            );
+          })()}
 
-          {analysis.observation && (
+          {analysis.data_shows?.length ? (
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>Observation from the funnel data</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>What the data shows</div>
+                <span style={factTag}>Calculated</span>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 16,
+                  fontSize: 13,
+                  color: "#6B7280",
+                  lineHeight: 1.7,
+                }}
+              >
+                {analysis.data_shows.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          ) : analysis.observation ? (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>What the data shows</div>
                 <span style={factTag}>Calculated</span>
               </div>
               <div style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7 }}>
                 {analysis.observation}
               </div>
             </div>
-          )}
+          ) : null}
+
+          {analysis.data_does_not_prove?.length ? (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: "1px solid #FECACA",
+                background: "#FEF2F2",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#991B1B" }}>
+                  What the data does NOT prove
+                </div>
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 16,
+                  fontSize: 13,
+                  color: "#991B1B",
+                  lineHeight: 1.7,
+                }}
+              >
+                {analysis.data_does_not_prove.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {analysis.business_context_considered && (
             <div style={{ marginBottom: 16 }}>
@@ -977,57 +1063,60 @@ function FunnelDoc() {
             ))}
           </div>
 
-          {(analysis.assumptions?.length || analysis.missing_information?.length) && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginBottom: 16,
-              }}
-            >
-              {analysis.assumptions?.length ? (
-                <div
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    background: "#F9FAFB",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-                    Assumptions being made
+          {(() => {
+            const assumptions = (analysis.assumptions ?? []).slice(0, 4);
+            const missing = (analysis.missing_evidence ?? analysis.missing_information ?? []).slice(0, 4);
+            if (!assumptions.length && !missing.length) return null;
+            return (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                  marginBottom: 16,
+                }}
+              >
+                {assumptions.length ? (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #E5E7EB",
+                      background: "#F9FAFB",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>Assumptions</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
+                      {assumptions.map((a, i) => (
+                        <li key={i}>{a}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
-                    {analysis.assumptions.map((a, i) => (
-                      <li key={i}>{a}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {analysis.missing_information?.length ? (
-                <div
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: 8,
-                    border: "1px solid #FDE68A",
-                    background: "#FFFBEB",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#92400E" }}>
-                    Missing information
+                ) : null}
+                {missing.length ? (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #FDE68A",
+                      background: "#FFFBEB",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#92400E" }}>
+                      Missing evidence
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#92400E", lineHeight: 1.7 }}>
+                      {missing.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#92400E", lineHeight: 1.7 }}>
-                    {analysis.missing_information.map((m, i) => (
-                      <li key={i}>{m}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          )}
+                ) : null}
+              </div>
+            );
+          })()}
 
-          {analysis.next_investigation && (
+          {(analysis.investigate_first || analysis.next_investigation) && (
             <div
               style={{
                 padding: "12px 14px",
@@ -1038,10 +1127,10 @@ function FunnelDoc() {
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 600, color: "#4338CA", marginBottom: 4 }}>
-                Recommended next investigation
+                Investigate this first
               </div>
               <div style={{ fontSize: 13, color: "#4338CA", lineHeight: 1.7 }}>
-                {analysis.next_investigation}
+                {analysis.investigate_first ?? analysis.next_investigation}
               </div>
             </div>
           )}
