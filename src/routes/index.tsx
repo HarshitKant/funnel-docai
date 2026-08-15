@@ -1063,57 +1063,60 @@ function FunnelDoc() {
             ))}
           </div>
 
-          {(analysis.assumptions?.length || analysis.missing_information?.length) && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 10,
-                marginBottom: 16,
-              }}
-            >
-              {analysis.assumptions?.length ? (
-                <div
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    background: "#F9FAFB",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-                    Assumptions being made
+          {(() => {
+            const assumptions = (analysis.assumptions ?? []).slice(0, 4);
+            const missing = (analysis.missing_evidence ?? analysis.missing_information ?? []).slice(0, 4);
+            if (!assumptions.length && !missing.length) return null;
+            return (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                  marginBottom: 16,
+                }}
+              >
+                {assumptions.length ? (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #E5E7EB",
+                      background: "#F9FAFB",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>Assumptions</div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
+                      {assumptions.map((a, i) => (
+                        <li key={i}>{a}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
-                    {analysis.assumptions.map((a, i) => (
-                      <li key={i}>{a}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {analysis.missing_information?.length ? (
-                <div
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: 8,
-                    border: "1px solid #FDE68A",
-                    background: "#FFFBEB",
-                  }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#92400E" }}>
-                    Missing information
+                ) : null}
+                {missing.length ? (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #FDE68A",
+                      background: "#FFFBEB",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#92400E" }}>
+                      Missing evidence
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#92400E", lineHeight: 1.7 }}>
+                      {missing.map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#92400E", lineHeight: 1.7 }}>
-                    {analysis.missing_information.map((m, i) => (
-                      <li key={i}>{m}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          )}
+                ) : null}
+              </div>
+            );
+          })()}
 
-          {analysis.next_investigation && (
+          {(analysis.investigate_first || analysis.next_investigation) && (
             <div
               style={{
                 padding: "12px 14px",
@@ -1124,10 +1127,10 @@ function FunnelDoc() {
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 600, color: "#4338CA", marginBottom: 4 }}>
-                Recommended next investigation
+                Investigate this first
               </div>
               <div style={{ fontSize: 13, color: "#4338CA", lineHeight: 1.7 }}>
-                {analysis.next_investigation}
+                {analysis.investigate_first ?? analysis.next_investigation}
               </div>
             </div>
           )}
