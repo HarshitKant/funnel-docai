@@ -29,9 +29,28 @@ export const Route = createFileRoute("/")({
 
 type Step = { step: string; users: string };
 type FunnelPoint = { step: string; users: number };
+type BizContext = {
+  business: string;
+  customer: string;
+  model: string;
+  goal: string;
+  cycle: string;
+  extra: string;
+};
+
+const EMPTY_CONTEXT: BizContext = {
+  business: "",
+  customer: "",
+  model: "",
+  goal: "",
+  cycle: "",
+  extra: "",
+};
 
 type Analysis = {
   overall_conversion: string;
+  observation?: string;
+  business_context_considered?: string;
   kill_zone: { from: string; to: string; drop_pct: string; insight: string };
   steps: { from: string; to: string; drop_pct: string; severity: string }[];
   segments_to_check: string[];
@@ -42,6 +61,10 @@ type Analysis = {
     true_pattern: string;
     false_pattern: string;
   }[];
+  assumptions?: string[];
+  missing_information?: string[];
+  confidence?: { level: string; reason: string };
+  next_investigation?: string;
   fixes: { title: string; detail: string; hypothesis_link: number; expected_impact: string }[];
   sql_query: string;
   sql_explanation: string;
@@ -55,6 +78,55 @@ const SAMPLE_FUNNEL: Step[] = [
   { step: "KYC Completed", users: "1200" },
   { step: "First Transaction", users: "580" },
 ];
+
+const SAMPLE_CONTEXT: BizContext = {
+  business: "A consumer fintech app for sending money abroad with low fees.",
+  customer: "Migrant workers aged 25-45 sending money home monthly.",
+  model: "Transaction fee per transfer",
+  goal: "Complete first transaction",
+  cycle: "2-5 days from signup to first transfer",
+  extra: "KYC is required by regulation before any transfer.",
+};
+
+const CONTEXT_FIELDS: {
+  key: keyof BizContext;
+  label: string;
+  placeholder: string;
+  multiline?: boolean;
+  optional?: boolean;
+}[] = [
+  {
+    key: "business",
+    label: "What does your product / business do?",
+    placeholder: "e.g. A consumer fintech app for sending money abroad with low fees",
+    multiline: true,
+  },
+  {
+    key: "customer",
+    label: "Who is your target customer?",
+    placeholder: "e.g. Migrant workers aged 25-45 sending money home monthly",
+    multiline: true,
+  },
+  { key: "model", label: "Business model", placeholder: "e.g. Transaction fee per transfer" },
+  {
+    key: "goal",
+    label: "Primary conversion goal",
+    placeholder: "e.g. Complete first transaction",
+  },
+  {
+    key: "cycle",
+    label: "Typical conversion cycle",
+    placeholder: "e.g. 2-5 days from signup to first transfer",
+  },
+  {
+    key: "extra",
+    label: "Additional context (optional)",
+    placeholder: "Anything else worth knowing — seasonality, regulation, recent changes…",
+    multiline: true,
+    optional: true,
+  },
+];
+
 
 function computeDropoffs(d: FunnelPoint[]) {
   return d.slice(1).map((s, i) => {
