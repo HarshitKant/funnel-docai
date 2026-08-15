@@ -63,8 +63,13 @@ type Analysis = {
   }[];
   assumptions?: string[];
   missing_information?: string[];
+  missing_evidence?: string[];
   confidence?: { level: string; reason: string };
+  evidence_readiness?: { level: string; reason: string };
+  data_shows?: string[];
+  data_does_not_prove?: string[];
   next_investigation?: string;
+  investigate_first?: string;
   fixes: { title: string; detail: string; hypothesis_link: number; expected_impact: string }[];
   sql_query: string;
   sql_explanation: string;
