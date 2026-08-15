@@ -117,6 +117,13 @@ const CONTEXT_FIELDS: {
     label: "What is the primary conversion goal?",
     placeholder: "e.g. Complete first transaction",
   },
+  {
+    key: "extra",
+    label: "Add more context (optional)",
+    placeholder: "Anything else worth knowing — seasonality, regulation, recent changes…",
+    multiline: true,
+    optional: true,
+  },
 ];
 
 const factTag = {
