@@ -722,7 +722,7 @@ function FunnelDoc() {
               color: loading || funnelData.length < 2 ? "#9CA3AF" : "#fff",
             }}
           >
-            {loading ? "Diagnosing..." : "Diagnose this funnel"}
+            {loading ? "Running Preflight..." : "Run Funnel Preflight"}
           </button>
 
           {loading && (
