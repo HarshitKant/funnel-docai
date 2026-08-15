@@ -29,9 +29,28 @@ export const Route = createFileRoute("/")({
 
 type Step = { step: string; users: string };
 type FunnelPoint = { step: string; users: number };
+type BizContext = {
+  business: string;
+  customer: string;
+  model: string;
+  goal: string;
+  cycle: string;
+  extra: string;
+};
+
+const EMPTY_CONTEXT: BizContext = {
+  business: "",
+  customer: "",
+  model: "",
+  goal: "",
+  cycle: "",
+  extra: "",
+};
 
 type Analysis = {
   overall_conversion: string;
+  observation?: string;
+  business_context_considered?: string;
   kill_zone: { from: string; to: string; drop_pct: string; insight: string };
   steps: { from: string; to: string; drop_pct: string; severity: string }[];
   segments_to_check: string[];
@@ -42,6 +61,10 @@ type Analysis = {
     true_pattern: string;
     false_pattern: string;
   }[];
+  assumptions?: string[];
+  missing_information?: string[];
+  confidence?: { level: string; reason: string };
+  next_investigation?: string;
   fixes: { title: string; detail: string; hypothesis_link: number; expected_impact: string }[];
   sql_query: string;
   sql_explanation: string;
@@ -55,6 +78,78 @@ const SAMPLE_FUNNEL: Step[] = [
   { step: "KYC Completed", users: "1200" },
   { step: "First Transaction", users: "580" },
 ];
+
+const SAMPLE_CONTEXT: BizContext = {
+  business: "A consumer fintech app for sending money abroad with low fees.",
+  customer: "Migrant workers aged 25-45 sending money home monthly.",
+  model: "Transaction fee per transfer",
+  goal: "Complete first transaction",
+  cycle: "2-5 days from signup to first transfer",
+  extra: "KYC is required by regulation before any transfer.",
+};
+
+const CONTEXT_FIELDS: {
+  key: keyof BizContext;
+  label: string;
+  placeholder: string;
+  multiline?: boolean;
+  optional?: boolean;
+}[] = [
+  {
+    key: "business",
+    label: "What does your product / business do?",
+    placeholder: "e.g. A consumer fintech app for sending money abroad with low fees",
+    multiline: true,
+  },
+  {
+    key: "customer",
+    label: "Who is your target customer?",
+    placeholder: "e.g. Migrant workers aged 25-45 sending money home monthly",
+    multiline: true,
+  },
+  { key: "model", label: "Business model", placeholder: "e.g. Transaction fee per transfer" },
+  {
+    key: "goal",
+    label: "Primary conversion goal",
+    placeholder: "e.g. Complete first transaction",
+  },
+  {
+    key: "cycle",
+    label: "Typical conversion cycle",
+    placeholder: "e.g. 2-5 days from signup to first transfer",
+  },
+  {
+    key: "extra",
+    label: "Additional context (optional)",
+    placeholder: "Anything else worth knowing — seasonality, regulation, recent changes…",
+    multiline: true,
+    optional: true,
+  },
+];
+
+const factTag = {
+  padding: "2px 8px",
+  borderRadius: 10,
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: "0.3px",
+  textTransform: "uppercase" as const,
+  color: "#0F766E",
+  background: "#CCFBF1",
+  border: "1px solid #99F6E4",
+};
+
+const aiTag = {
+  ...factTag,
+  color: "#6D28D9",
+  background: "#EDE9FE",
+  border: "1px solid #DDD6FE",
+};
+
+const confColor = (l: string) =>
+  l === "High" ? "#16A34A" : l === "Medium" ? "#B45309" : "#DC2626";
+const confBg = (l: string) => (l === "High" ? "#DCFCE7" : l === "Medium" ? "#FEF3C7" : "#FEE2E2");
+
 
 function computeDropoffs(d: FunnelPoint[]) {
   return d.slice(1).map((s, i) => {
@@ -70,7 +165,7 @@ function findKillZone(d: FunnelPoint[]) {
   return dr.length ? dr.reduce((m, x) => (parseFloat(x.drop) > parseFloat(m.drop) ? x : m), dr[0]) : null;
 }
 
-function generateFallback(data: FunnelPoint[]): Analysis {
+function generateFallback(data: FunnelPoint[], ctx: BizContext): Analysis {
   const drops = computeDropoffs(data);
   const killDrop = drops.reduce((m, x) => (parseFloat(x.drop) > parseFloat(m.drop) ? x : m), drops[0]);
   const overall =
@@ -88,15 +183,43 @@ function generateFallback(data: FunnelPoint[]): Analysis {
             ? "medium"
             : "low",
   }));
+  const provided = Object.values(ctx).filter((v) => v.trim()).length;
   return {
     overall_conversion: overall,
+    observation: `Across ${data.length} recorded steps, ${data[0].users.toLocaleString()} users entered at "${data[0].step}" and ${data[data.length - 1].users.toLocaleString()} reached "${data[data.length - 1].step}" (${overall} end-to-end). The largest single-step loss is ${killDrop.from} → ${killDrop.to}, where ${killDrop.drop}% of users are lost. These figures are calculated directly from the numbers you entered.`,
+    business_context_considered:
+      provided === 0
+        ? "No business context was provided, so this diagnosis is based only on the raw funnel numbers. Adding context would materially sharpen the hypotheses."
+        : `Context used: ${[ctx.business && `product — ${ctx.business}`, ctx.customer && `customer — ${ctx.customer}`, ctx.model && `model — ${ctx.model}`, ctx.goal && `goal — ${ctx.goal}`, ctx.cycle && `cycle — ${ctx.cycle}`, ctx.extra && `notes — ${ctx.extra}`]
+            .filter(Boolean)
+            .join("; ")}.`,
+    assumptions: [
+      "The step counts represent unique users, not sessions or events.",
+      "All steps are sequential and users must pass each step in order.",
+      "The data covers a single, representative time period with no tracking gaps.",
+    ],
+    missing_information: [
+      "Time period covered and whether volumes are seasonal or campaign-driven.",
+      "Segment breakdowns (device, geography, traffic source, new vs returning).",
+      "Instrumentation quality — whether any step is under- or double-counted.",
+      "Qualitative signals: session recordings, support tickets, or survey responses at the drop-off step.",
+    ],
+    confidence: {
+      level: provided >= 4 ? "Medium" : "Low",
+      reason:
+        provided >= 4
+          ? "Business context was supplied, but hypotheses still rest on aggregate counts with no segment-level or behavioural data to test against."
+          : "Only aggregate step counts were available, with little or no business context, so hypotheses are broad and unvalidated.",
+    },
+    next_investigation: `Segment the ${killDrop.from} → ${killDrop.to} pass-through rate by device, traffic source and geography over the last 14 days. If one segment carries most of the loss, the cause is likely technical or audience-specific; if the loss is uniform, the step itself is the friction.`,
     kill_zone: {
       from: killDrop.from,
       to: killDrop.to,
       drop_pct: killDrop.drop + "%",
-      insight: `${killDrop.drop}% of users drop off between ${killDrop.from} and ${killDrop.to}. These are users who showed intent by reaching ${killDrop.from} but hit a wall. This is the highest-leverage fix in your funnel.`,
+      insight: `${killDrop.drop}% of users drop off between ${killDrop.from} and ${killDrop.to}. These are users who showed intent by reaching ${killDrop.from} but hit a wall. This is likely the highest-leverage place to investigate first.`,
     },
     steps: stepsAnalysis,
+
     segments_to_check: [
       "Device type (mobile vs desktop)",
       "Geography / region",
@@ -179,8 +302,10 @@ function FunnelDoc() {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<BizContext>({ ...EMPTY_CONTEXT });
+  const [ctxOpen, setCtxOpen] = useState(true);
 
-
+  const updateCtx = (k: keyof BizContext, v: string) => setCtx((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
     if (!loading) return;
@@ -192,7 +317,10 @@ function FunnelDoc() {
   const removeStep = (i: number) => setSteps((p) => p.filter((_, idx) => idx !== i));
   const updateStep = (i: number, f: keyof Step, v: string) =>
     setSteps((p) => p.map((s, idx) => (idx === i ? { ...s, [f]: v } : s)));
-  const loadSample = () => setSteps(SAMPLE_FUNNEL.map((s) => ({ ...s })));
+  const loadSample = () => {
+    setSteps(SAMPLE_FUNNEL.map((s) => ({ ...s })));
+    setCtx({ ...SAMPLE_CONTEXT });
+  };
 
   const funnelData: FunnelPoint[] = steps
     .filter((s) => s.step && s.users)
@@ -208,18 +336,19 @@ function FunnelDoc() {
     setError(null);
     setUsedFallback(false);
     try {
-      const parsed = await analyzeFn({ data: { steps: funnelData } });
+      const parsed = await analyzeFn({ data: { steps: funnelData, context: ctx } });
       setAnalysis(parsed as Analysis);
       setView("results");
     } catch (e) {
       console.error("AI error, using fallback:", e);
-      setAnalysis(generateFallback(funnelData));
+      setAnalysis(generateFallback(funnelData, ctx));
       setUsedFallback(true);
       setView("results");
     } finally {
       setLoading(false);
     }
-  }, [funnelData, analyzeFn]);
+  }, [funnelData, analyzeFn, ctx]);
+
 
   const submitFeedback = useCallback(async () => {
     const trimmed = feedback.trim();
@@ -308,6 +437,99 @@ function FunnelDoc() {
 
       {view === "input" && (
         <div>
+          <div
+            style={{
+              border: "1px solid #E5E7EB",
+              borderRadius: 10,
+              marginBottom: 20,
+              overflow: "hidden",
+            }}
+          >
+            <button
+              onClick={() => setCtxOpen((p) => !p)}
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 14px",
+                background: "#F9FAFB",
+                border: "none",
+                borderBottom: ctxOpen ? "1px solid #E5E7EB" : "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                textAlign: "left",
+              }}
+            >
+              <span>
+                <span style={{ fontSize: 15, fontWeight: 500, color: "#111827" }}>
+                  Business context
+                </span>
+                <span style={{ fontSize: 12, color: "#9CA3AF", marginLeft: 8 }}>
+                  the more you share, the sharper the diagnosis
+                </span>
+              </span>
+              <span style={{ fontSize: 12, color: "#6366F1" }}>{ctxOpen ? "Hide" : "Show"}</span>
+            </button>
+
+            {ctxOpen && (
+              <div style={{ padding: 14, display: "grid", gap: 12 }}>
+                {CONTEXT_FIELDS.map((f) => (
+                  <div key={f.key}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "#6B7280",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {f.label}
+                    </label>
+                    {f.multiline ? (
+                      <textarea
+                        value={ctx[f.key]}
+                        onChange={(e) => updateCtx(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        rows={2}
+                        style={{
+                          width: "100%",
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          border: "1px solid #E5E7EB",
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          resize: "vertical",
+                          outline: "none",
+                          color: "#111827",
+                          background: "#fff",
+                        }}
+                      />
+                    ) : (
+                      <input
+                        value={ctx[f.key]}
+                        onChange={(e) => updateCtx(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        style={{
+                          width: "100%",
+                          padding: "8px 10px",
+                          borderRadius: 6,
+                          border: "1px solid #E5E7EB",
+                          fontSize: 13,
+                          fontFamily: "inherit",
+                          outline: "none",
+                          color: "#111827",
+                          background: "#fff",
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div
             style={{
               display: "flex",
@@ -553,8 +775,67 @@ function FunnelDoc() {
             {analysis.kill_zone.insight}
           </div>
 
+          {analysis.confidence && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid #E5E7EB",
+                background: "#F9FAFB",
+                marginBottom: 16,
+              }}
+            >
+              <span
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: 12,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: confColor(analysis.confidence.level),
+                  background: confBg(analysis.confidence.level),
+                  flexShrink: 0,
+                }}
+              >
+                {analysis.confidence.level} confidence
+              </span>
+              <span style={{ fontSize: 12, color: "#6B7280", lineHeight: 1.6 }}>
+                {analysis.confidence.reason}
+              </span>
+            </div>
+          )}
+
+          {analysis.observation && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>Observation from the funnel data</div>
+                <span style={factTag}>Calculated</span>
+              </div>
+              <div style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7 }}>
+                {analysis.observation}
+              </div>
+            </div>
+          )}
+
+          {analysis.business_context_considered && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 6 }}>
+                Business context considered
+              </div>
+              <div style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.7 }}>
+                {analysis.business_context_considered}
+              </div>
+            </div>
+          )}
+
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Step-by-step breakdown</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Step-by-step breakdown</div>
+              <span style={factTag}>Calculated</span>
+            </div>
+
             <div style={{ border: "1px solid #E5E7EB", borderRadius: 8, overflow: "hidden" }}>
               {analysis.steps.map((s, i) => (
                 <div
@@ -632,7 +913,15 @@ function FunnelDoc() {
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Top 3 hypotheses</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Top 3 hypotheses</div>
+              <span style={aiTag}>AI-generated</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 8, lineHeight: 1.6 }}>
+              These are possible explanations, not findings. Validate each one against your data
+              before acting.
+            </div>
+
             {analysis.hypotheses.map((h, i) => (
               <div
                 key={i}
@@ -688,8 +977,81 @@ function FunnelDoc() {
             ))}
           </div>
 
+          {(analysis.assumptions?.length || analysis.missing_information?.length) && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                marginBottom: 16,
+              }}
+            >
+              {analysis.assumptions?.length ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    background: "#F9FAFB",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+                    Assumptions being made
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
+                    {analysis.assumptions.map((a, i) => (
+                      <li key={i}>{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {analysis.missing_information?.length ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #FDE68A",
+                    background: "#FFFBEB",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#92400E" }}>
+                    Missing information
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#92400E", lineHeight: 1.7 }}>
+                    {analysis.missing_information.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {analysis.next_investigation && (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: "1px solid #C7D2FE",
+                background: "#EEF2FF",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#4338CA", marginBottom: 4 }}>
+                Recommended next investigation
+              </div>
+              <div style={{ fontSize: 13, color: "#4338CA", lineHeight: 1.7 }}>
+                {analysis.next_investigation}
+              </div>
+            </div>
+          )}
+
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Recommended fixes</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Recommended fixes</div>
+              <span style={aiTag}>AI-generated</span>
+            </div>
+
             {analysis.fixes.map((f, i) => (
               <div
                 key={i}
