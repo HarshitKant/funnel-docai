@@ -977,8 +977,81 @@ function FunnelDoc() {
             ))}
           </div>
 
+          {(analysis.assumptions?.length || analysis.missing_information?.length) && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                marginBottom: 16,
+              }}
+            >
+              {analysis.assumptions?.length ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    background: "#F9FAFB",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
+                    Assumptions being made
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#6B7280", lineHeight: 1.7 }}>
+                    {analysis.assumptions.map((a, i) => (
+                      <li key={i}>{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {analysis.missing_information?.length ? (
+                <div
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #FDE68A",
+                    background: "#FFFBEB",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6, color: "#92400E" }}>
+                    Missing information
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#92400E", lineHeight: 1.7 }}>
+                    {analysis.missing_information.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {analysis.next_investigation && (
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                border: "1px solid #C7D2FE",
+                background: "#EEF2FF",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#4338CA", marginBottom: 4 }}>
+                Recommended next investigation
+              </div>
+              <div style={{ fontSize: 13, color: "#4338CA", lineHeight: 1.7 }}>
+                {analysis.next_investigation}
+              </div>
+            </div>
+          )}
+
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Recommended fixes</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Recommended fixes</div>
+              <span style={aiTag}>AI-generated</span>
+            </div>
+
             {analysis.fixes.map((f, i) => (
               <div
                 key={i}
