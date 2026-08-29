@@ -92,6 +92,16 @@ const levelColor = (l?: string) =>
 const levelBg = (l?: string) =>
   l === "Strong" || l === "High" ? "#DCFCE7" : l === "Partial" || l === "Medium" ? "#FEF3C7" : "#FEE2E2";
 
+const READINESS_MEANING: Record<string, string> = {
+  Strong:
+    "Evidence is strong enough to support a more specific recommendation, while remaining explicit about the remaining uncertainty.",
+  Partial:
+    "Enough evidence to prioritize the next investigation. Not enough evidence to determine root cause.",
+  Weak: "Not enough evidence to prioritize a root cause. Collect additional evidence before acting.",
+};
+
+
+
 const label: React.CSSProperties = {
   display: "block",
   fontSize: 12,
