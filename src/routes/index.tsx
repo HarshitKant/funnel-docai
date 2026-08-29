@@ -578,14 +578,25 @@ function FunnelDoc() {
                 </div>
               </div>
             )}
+            {!!result.next_check.unlocks?.length && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px", color: "#6B7280" }}>
+                  WHAT THIS DECISION UNLOCKS
+                </div>
+                <div style={{ marginTop: 5, display: "grid", gap: 4 }}>
+                  {result.next_check.unlocks.map((u, i) => (
+                    <div key={i} style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>
+                      • {u}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
               {[
-                { l: "Information value", v: result.next_check.information_value },
-                { l: "Effort", v: result.next_check.effort },
-                {
-                  l: "Hypotheses affected",
-                  v: result.next_check.hypotheses_affected?.join(", "),
-                },
+                { l: "Tests", v: result.next_check.tests?.join(", ") },
+                { l: "Requires", v: result.next_check.requires?.join(" + ") },
+                { l: "Estimated effort", v: result.next_check.estimated_effort },
               ]
                 .filter((x) => x.v)
                 .map((x, i) => (
