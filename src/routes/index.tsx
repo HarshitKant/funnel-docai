@@ -40,7 +40,7 @@ type Result = {
   evidence_strength?: { level: string; reason: string };
   known: string[];
   assumed: { claim: string; caveat?: string }[];
-  unknown: string[];
+  unknown: (string | { item: string; why?: string })[];
   hypotheses: {
     id?: string;
     name: string;
@@ -52,9 +52,10 @@ type Result = {
   next_check: {
     action: string;
     why?: string;
-    information_value?: string;
-    effort?: string;
-    hypotheses_affected?: string[];
+    tests?: string[];
+    requires?: string[];
+    estimated_effort?: string;
+    unlocks?: string[];
   };
   alternative_check?: { action: string; why?: string };
 };
