@@ -393,6 +393,11 @@ function FunnelDoc() {
                 {result.evidence_strength.reason}
               </div>
             )}
+            {result.evidence_strength && READINESS_MEANING[result.evidence_strength.level] && (
+              <div style={{ fontSize: 12.5, color: "#374151", marginTop: 8, lineHeight: 1.5 }}>
+                {READINESS_MEANING[result.evidence_strength.level]}
+              </div>
+            )}
           </div>
 
           {/* Evidence ledger */}
