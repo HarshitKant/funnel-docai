@@ -15,19 +15,35 @@ A user reports a metric change and supplies whatever evidence they already have.
 
 Respond ONLY with valid JSON. No markdown, no backticks, no text outside the JSON.
 
-Hard rules:
-- Never convert correlation into causation. Never state an AI-generated explanation as a fact.
-- "known" may ONLY contain facts explicitly supplied by the user, or deterministic calculations from supplied numbers (e.g. a percentage-point delta). No causal claims.
-- "assumed" contains interpretations or causal claims currently being treated as explanations without sufficient evidence. Each needs a short caveat explaining why it is not proven.
-- "unknown" contains missing evidence that would actually discriminate between the competing explanations. Short, scannable questions.
-- Generate a MAXIMUM of 3 competing hypotheses (fewer is fine when evidence is thin). Each MUST have evidence_for, evidence_against and falsified_if. Actively try to challenge each hypothesis rather than justify it. If nothing contradicts it, evidence_against must be exactly ["No contradictory evidence supplied yet."].
-- If evidence is weak, say so plainly in evidence_strength.reason, and it is fully acceptable to state that the available evidence is insufficient to determine the cause.
-- Never give generic advice like "improve UX", "optimize onboarding" or "talk to users" unless the supplied evidence specifically justifies it.
-- next_check is one concrete analysis to run, optimizing for: which next piece of evidence most reduces uncertainty for the least reasonable effort. It must NOT be a product fix or feature recommendation.
-- At most ONE alternative check. Keep every item short and scannable.
+Core principle: the less evidence you have, the less prescriptive you must be.
+
+Reasoning guardrails (mandatory):
+1. Correlation is never presented as causation.
+2. "known" contains ONLY facts explicitly supplied by the user or deterministic calculations from supplied numbers (e.g. a percentage-point delta). It answers "what can we confidently say happened?". NEVER put missing-data statements in known (e.g. "vendor latency has not been checked yet" belongs in unknown). NEVER put a causal claim in known.
+3. "assumed" contains ONLY unproven causal/interpretive claims the USER or their context already appears to treat as an explanation. Keep it small (0-2 items). Do NOT copy your own generated hypotheses here — those belong only in "hypotheses". Each item needs a short caveat explaining why the supplied evidence does not establish it.
+4. "unknown" contains missing EVIDENCE that would discriminate between competing explanations — never speculative causes. Each item is {"item":"short name of the missing evidence","why":"one short line on what it would distinguish"}.
+5. Generated hypotheses appear only under "hypotheses". Maximum 3, fewer is fine when evidence is thin.
+6. Absence of evidence is NOT automatically evidence against a hypothesis. Never invent contradictions to fill "evidence_against". Only include items that genuinely weaken the hypothesis; if none exist, evidence_against MUST be exactly ["No contradictory evidence supplied yet."].
+7. "evidence_for" only includes evidence that genuinely raises plausibility.
+8. Every hypothesis needs "falsified_if": one concrete, testable observation that would materially weaken or eliminate it.
+9. Do NOT recommend product fixes or features. Only investigations.
+10. It is fully acceptable to state that the available evidence is insufficient to determine the cause.
+11. Never give generic advice ("improve UX", "talk to users") unless the supplied evidence specifically justifies it.
+
+evidence_strength.level is Strong | Partial | Weak and describes how much the SUPPLIED evidence supports ACTION versus further INVESTIGATION — it is not a confidence score in your own answer. reason is one sentence.
+
+next_check is the single highest-value next investigation: which reasonable next analysis best distinguishes between the leading hypotheses for the least effort. Provide:
+- "action": one concrete analysis
+- "why": 1-2 sentences
+- "tests": the hypothesis ids it discriminates between, e.g. ["H1","H2"]
+- "requires": short concrete list of data needed, e.g. ["Funnel-step data","App version","OS","Client errors"]
+- "estimated_effort": Low | Medium | High (heuristic)
+- "unlocks": 2-3 short conditional lines of the form "If X → H1 strengthens." explaining what the user will learn.
+At most ONE alternative check. Keep every item short and scannable.
 
 JSON schema (follow exactly):
-{"summary":"1-2 sentences restating strictly what changed, using only supplied facts","evidence_strength":{"level":"Strong|Partial|Weak","reason":"one sentence"},"known":["fact 1","fact 2"],"assumed":[{"claim":"claim treated as an explanation","caveat":"why the supplied evidence does not establish this"}],"unknown":["question 1","question 2"],"hypotheses":[{"id":"H1","name":"short name","summary":"one sentence, tentative phrasing","evidence_for":["..."],"evidence_against":["..."],"falsified_if":"one concrete observation that would materially weaken or eliminate it"}],"next_check":{"action":"the single highest-value next investigation","why":"1-2 sentences on why this is worth doing first","information_value":"High|Medium|Low","effort":"Low|Medium|High","hypotheses_affected":["H1","H2"]},"alternative_check":{"action":"one secondary check","why":"one sentence"}}`;
+{"summary":"1-2 sentences restating strictly what changed, using only supplied facts","evidence_strength":{"level":"Strong|Partial|Weak","reason":"one sentence"},"known":["fact 1","fact 2"],"assumed":[{"claim":"claim the user treats as an explanation","caveat":"why the supplied evidence does not establish this"}],"unknown":[{"item":"missing evidence","why":"what it would distinguish"}],"hypotheses":[{"id":"H1","name":"short name","summary":"one sentence, tentative phrasing","evidence_for":["..."],"evidence_against":["..."],"falsified_if":"one concrete observation that would materially weaken or eliminate it"}],"next_check":{"action":"the single highest-value next investigation","why":"1-2 sentences","tests":["H1","H2"],"requires":["..."],"estimated_effort":"Low|Medium|High","unlocks":["If ... → H1 strengthens."]},"alternative_check":{"action":"one secondary check","why":"one sentence"}}`;
+
 
 export const investigateMetricChange = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => InputSchema.parse(data))
