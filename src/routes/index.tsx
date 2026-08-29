@@ -458,11 +458,34 @@ function FunnelDoc() {
                             )}
                           </div>
                         ))
-                      : ((col.key === "known" ? result.known : result.unknown) ?? []).map((t, i) => (
-                          <div key={i} style={{ fontSize: 12.5, lineHeight: 1.45, color: "#111827" }}>
-                            • {t}
-                          </div>
-                        ))}
+                      : col.key === "unknown"
+                        ? (result.unknown ?? []).map((u, i) => {
+                            const item = typeof u === "string" ? u : u.item;
+                            const why = typeof u === "string" ? undefined : u.why;
+                            return (
+                              <div key={i}>
+                                <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "#111827" }}>• {item}</div>
+                                {why && (
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#4338CA",
+                                      marginTop: 3,
+                                      paddingLeft: 10,
+                                      lineHeight: 1.45,
+                                    }}
+                                  >
+                                    {why}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        : (result.known ?? []).map((t, i) => (
+                            <div key={i} style={{ fontSize: 12.5, lineHeight: 1.45, color: "#111827" }}>
+                              • {t}
+                            </div>
+                          ))}
                   </div>
                 </div>
               ))}
