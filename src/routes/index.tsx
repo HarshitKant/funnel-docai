@@ -666,7 +666,7 @@ function FunnelDoc() {
 
                 {changedAnswer && (
                   <div style={{ marginTop: 14 }}>
-                    <label style={label}>What would you have investigated without FunnelDoc?</label>
+                    <label style={label}>What would you have investigated first without FunnelDoc?</label>
                     <input
                       value={counterfactual}
                       onChange={(e) => setCounterfactual(e.target.value)}
@@ -674,6 +674,9 @@ function FunnelDoc() {
                       placeholder="Optional — one line is enough"
                       style={field}
                     />
+                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 5 }}>
+                      This helps us understand whether the investigation changed your decision.
+                    </div>
                     <button
                       onClick={submitValidation}
                       disabled={fbSubmitting}
