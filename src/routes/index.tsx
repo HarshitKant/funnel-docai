@@ -40,7 +40,7 @@ type Result = {
   evidence_strength?: { level: string; reason: string };
   known: string[];
   assumed: { claim: string; caveat?: string }[];
-  unknown: string[];
+  unknown: (string | { item: string; why?: string })[];
   hypotheses: {
     id?: string;
     name: string;
@@ -52,9 +52,10 @@ type Result = {
   next_check: {
     action: string;
     why?: string;
-    information_value?: string;
-    effort?: string;
-    hypotheses_affected?: string[];
+    tests?: string[];
+    requires?: string[];
+    estimated_effort?: string;
+    unlocks?: string[];
   };
   alternative_check?: { action: string; why?: string };
 };
@@ -90,6 +91,16 @@ const levelColor = (l?: string) =>
   l === "Strong" || l === "High" ? "#16A34A" : l === "Partial" || l === "Medium" ? "#B45309" : "#DC2626";
 const levelBg = (l?: string) =>
   l === "Strong" || l === "High" ? "#DCFCE7" : l === "Partial" || l === "Medium" ? "#FEF3C7" : "#FEE2E2";
+
+const READINESS_MEANING: Record<string, string> = {
+  Strong:
+    "Evidence is strong enough to support a more specific recommendation, while remaining explicit about the remaining uncertainty.",
+  Partial:
+    "Enough evidence to prioritize the next investigation. Not enough evidence to determine root cause.",
+  Weak: "Not enough evidence to prioritize a root cause. Collect additional evidence before acting.",
+};
+
+
 
 const label: React.CSSProperties = {
   display: "block",
@@ -382,6 +393,11 @@ function FunnelDoc() {
                 {result.evidence_strength.reason}
               </div>
             )}
+            {result.evidence_strength && READINESS_MEANING[result.evidence_strength.level] && (
+              <div style={{ fontSize: 12.5, color: "#374151", marginTop: 8, lineHeight: 1.5 }}>
+                {READINESS_MEANING[result.evidence_strength.level]}
+              </div>
+            )}
           </div>
 
           {/* Evidence ledger */}
@@ -442,11 +458,34 @@ function FunnelDoc() {
                             )}
                           </div>
                         ))
-                      : ((col.key === "known" ? result.known : result.unknown) ?? []).map((t, i) => (
-                          <div key={i} style={{ fontSize: 12.5, lineHeight: 1.45, color: "#111827" }}>
-                            • {t}
-                          </div>
-                        ))}
+                      : col.key === "unknown"
+                        ? (result.unknown ?? []).map((u, i) => {
+                            const item = typeof u === "string" ? u : u.item;
+                            const why = typeof u === "string" ? undefined : u.why;
+                            return (
+                              <div key={i}>
+                                <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "#111827" }}>• {item}</div>
+                                {why && (
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#4338CA",
+                                      marginTop: 3,
+                                      paddingLeft: 10,
+                                      lineHeight: 1.45,
+                                    }}
+                                  >
+                                    {why}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        : (result.known ?? []).map((t, i) => (
+                            <div key={i} style={{ fontSize: 12.5, lineHeight: 1.45, color: "#111827" }}>
+                              • {t}
+                            </div>
+                          ))}
                   </div>
                 </div>
               ))}
@@ -539,14 +578,25 @@ function FunnelDoc() {
                 </div>
               </div>
             )}
+            {!!result.next_check.unlocks?.length && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px", color: "#6B7280" }}>
+                  WHAT THIS DECISION UNLOCKS
+                </div>
+                <div style={{ marginTop: 5, display: "grid", gap: 4 }}>
+                  {result.next_check.unlocks.map((u, i) => (
+                    <div key={i} style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>
+                      • {u}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 16 }}>
               {[
-                { l: "Information value", v: result.next_check.information_value },
-                { l: "Effort", v: result.next_check.effort },
-                {
-                  l: "Hypotheses affected",
-                  v: result.next_check.hypotheses_affected?.join(", "),
-                },
+                { l: "Tests", v: result.next_check.tests?.join(", ") },
+                { l: "Requires", v: result.next_check.requires?.join(" + ") },
+                { l: "Estimated effort", v: result.next_check.estimated_effort },
               ]
                 .filter((x) => x.v)
                 .map((x, i) => (
@@ -616,7 +666,7 @@ function FunnelDoc() {
 
                 {changedAnswer && (
                   <div style={{ marginTop: 14 }}>
-                    <label style={label}>What would you have investigated without FunnelDoc?</label>
+                    <label style={label}>What would you have investigated first without FunnelDoc?</label>
                     <input
                       value={counterfactual}
                       onChange={(e) => setCounterfactual(e.target.value)}
@@ -624,6 +674,9 @@ function FunnelDoc() {
                       placeholder="Optional — one line is enough"
                       style={field}
                     />
+                    <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 5 }}>
+                      This helps us understand whether the investigation changed your decision.
+                    </div>
                     <button
                       onClick={submitValidation}
                       disabled={fbSubmitting}
