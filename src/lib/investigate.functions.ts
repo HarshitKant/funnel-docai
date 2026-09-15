@@ -124,5 +124,9 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       throw new Error("Incomplete AI response");
     }
     if (Array.isArray(parsed.hypotheses)) parsed.hypotheses = parsed.hypotheses.slice(0, 3);
+
+    // Only successful investigations consume an allowance.
+    await supabase.from("investigation_runs").insert({ user_id: userId });
+
     return parsed;
   });
