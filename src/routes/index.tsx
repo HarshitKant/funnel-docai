@@ -176,11 +176,14 @@ function FunnelDoc() {
   const { openCheckout, loading: checkoutLoading } = usePaddleCheckout();
   const paddleEnv = getPaddleEnvironment();
 
-  const refreshAccess = useCallback(async () => {
+  const refreshAccess = useCallback(async (): Promise<AccessState | null> => {
     try {
-      setAccess(await loadAccess({ data: { environment: paddleEnv } }));
+      const next = await loadAccess({ data: { environment: paddleEnv } });
+      setAccess(next);
+      return next;
     } catch (e) {
       console.error(e);
+      return null;
     }
   }, [loadAccess, paddleEnv]);
 
@@ -206,8 +209,8 @@ function FunnelDoc() {
     let tries = 0;
     const t = setInterval(async () => {
       tries += 1;
-      await refreshAccess();
-      if (tries >= 8) clearInterval(t);
+      const next = await refreshAccess();
+      if (next?.unlocked || tries >= 10) clearInterval(t);
     }, 2000);
     return () => clearInterval(t);
   }, [refreshAccess]);
