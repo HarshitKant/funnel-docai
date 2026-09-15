@@ -206,8 +206,8 @@ function FunnelDoc() {
     let tries = 0;
     const t = setInterval(async () => {
       tries += 1;
-      await refreshAccess();
-      if (tries >= 8) clearInterval(t);
+      const next = await refreshAccess();
+      if (next?.unlocked || tries >= 10) clearInterval(t);
     }, 2000);
     return () => clearInterval(t);
   }, [refreshAccess]);
