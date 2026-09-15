@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { FREE_RUN_LIMIT } from "@/lib/access.functions";
 
 const InputSchema = z.object({
   change: z.string().min(1).max(2000),
@@ -8,6 +10,7 @@ const InputSchema = z.object({
   after: z.string().max(200).default(""),
   when: z.string().max(200).default(""),
   evidence: z.string().max(8000).default(""),
+  environment: z.enum(["sandbox", "live"]).default("sandbox"),
 });
 
 const PROMPT = `You are FunnelDoc — an investigation assistant for product and growth practitioners.
@@ -46,10 +49,34 @@ JSON schema (follow exactly):
 
 
 export const investigateMetricChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => InputSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+
+    const { supabase, userId } = context;
+
+    // Server-side entitlement gate: free runs, then a one-time unlock.
+    const [{ count }, { data: purchases }] = await Promise.all([
+      supabase
+        .from("investigation_runs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+      supabase
+        .from("purchases")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("environment", data.environment)
+        .eq("status", "completed")
+        .limit(1),
+    ]);
+
+    const unlocked = (purchases?.length ?? 0) > 0;
+    if (!unlocked && (count ?? 0) >= FREE_RUN_LIMIT) {
+      throw new Error("PAYMENT_REQUIRED");
+    }
+
 
     const lines = [
       ["What changed", data.change],
@@ -97,5 +124,9 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       throw new Error("Incomplete AI response");
     }
     if (Array.isArray(parsed.hypotheses)) parsed.hypotheses = parsed.hypotheses.slice(0, 3);
+
+    // Only successful investigations consume an allowance.
+    await supabase.from("investigation_runs").insert({ user_id: userId });
+
     return parsed;
   });
