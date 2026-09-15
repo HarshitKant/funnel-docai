@@ -168,6 +168,75 @@ function FunnelDoc() {
 
   const set = (k: keyof Investigation, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
+  // ---- Account + access ----
+  const [email, setEmail] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [access, setAccess] = useState<AccessState | null>(null);
+  const loadAccess = useServerFn(getAccess);
+  const { openCheckout, loading: checkoutLoading } = usePaddleCheckout();
+  const paddleEnv = getPaddleEnvironment();
+
+  const refreshAccess = useCallback(async () => {
+    try {
+      setAccess(await loadAccess({ data: { environment: paddleEnv } }));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [loadAccess, paddleEnv]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setEmail(data.session?.user.email ?? null);
+      setAuthReady(true);
+      if (data.session) void refreshAccess();
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      setEmail(session?.user.email ?? null);
+      if (session) void refreshAccess();
+      else setAccess(null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [refreshAccess]);
+
+  // After a completed checkout the receipt arrives moments later — poll briefly.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!new URLSearchParams(window.location.search).get("checkout")) return;
+    let tries = 0;
+    const t = setInterval(async () => {
+      tries += 1;
+      await refreshAccess();
+      if (tries >= 8) clearInterval(t);
+    }, 2000);
+    return () => clearInterval(t);
+  }, [refreshAccess]);
+
+  const buyUnlock = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+      await openCheckout({
+        priceId: UNLOCK_PRICE_ID,
+        customerEmail: data.user.email ?? undefined,
+        customData: { userId: data.user.id },
+        successUrl: `${window.location.origin}/?checkout=success`,
+      });
+    } catch (e) {
+      console.error(e);
+      setError("Could not open checkout. Please try again.");
+    }
+  }, [openCheckout]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setAccess(null);
+    setEmail(null);
+  }, []);
+
+  const signedIn = !!email;
+  const paywalled = signedIn && !!access && !access.canRun;
+
   const analyze = useCallback(async () => {
     if (!form.change.trim()) {
       setError("Describe what changed to start an investigation.");
@@ -176,21 +245,28 @@ function FunnelDoc() {
     setError("");
     setLoading(true);
     try {
-      const r = (await run({ data: form })) as Result;
+      const r = (await run({ data: { ...form, environment: paddleEnv } })) as Result;
       setResult(r);
       setView("results");
       setChangedAnswer(null);
       setCounterfactual("");
       setFbDone(false);
+      void refreshAccess();
     } catch (e) {
       console.error(e);
-      setError(
-        e instanceof Error ? `Analysis failed: ${e.message}` : "Analysis failed. Please try again.",
-      );
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("PAYMENT_REQUIRED")) {
+        setError("You've used your free investigations. Unlock unlimited runs below.");
+        void refreshAccess();
+      } else if (msg.toLowerCase().includes("unauthorized")) {
+        setError("Please sign in to run an investigation.");
+      } else {
+        setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
-  }, [form, run]);
+  }, [form, run, paddleEnv, refreshAccess]);
 
   const submitValidation = useCallback(async () => {
     if (!changedAnswer) return;
