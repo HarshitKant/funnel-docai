@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { FREE_RUN_LIMIT } from "@/lib/access.functions";
+
 
 const InputSchema = z.object({
   change: z.string().min(1).max(2000),
@@ -240,25 +240,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
 
     const { supabase, userId } = context;
 
-    // Server-side entitlement gate: free runs, then a one-time unlock.
-    const [{ count }, { data: purchases }] = await Promise.all([
-      supabase
-        .from("investigation_runs")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId),
-      supabase
-        .from("purchases")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("environment", data.environment)
-        .eq("status", "completed")
-        .limit(1),
-    ]);
-
-    const unlocked = (purchases?.length ?? 0) > 0;
-    if (!unlocked && (count ?? 0) >= FREE_RUN_LIMIT) {
-      throw new Error("PAYMENT_REQUIRED");
-    }
+    // No paywall: every signed-in user can run unlimited investigations.
 
     const lines = [
       ["What changed", data.change],

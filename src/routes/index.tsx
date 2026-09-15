@@ -3,11 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { investigateMetricChange } from "@/lib/investigate.functions";
 import { submitTestimonial } from "@/lib/testimonials.functions";
-import { getAccess, type AccessState } from "@/lib/access.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { getPaddleEnvironment, UNLOCK_PRICE_ID } from "@/lib/paddle";
-import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -174,77 +170,28 @@ function FunnelDoc() {
 
   const set = (k: keyof Investigation, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  // ---- Account + access ----
+  // ---- Account ----
   const [email, setEmail] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [access, setAccess] = useState<AccessState | null>(null);
-  const loadAccess = useServerFn(getAccess);
-  const { openCheckout, loading: checkoutLoading } = usePaddleCheckout();
-  const paddleEnv = getPaddleEnvironment();
-
-  const refreshAccess = useCallback(async (): Promise<AccessState | null> => {
-    try {
-      const next = await loadAccess({ data: { environment: paddleEnv } });
-      setAccess(next);
-      return next;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  }, [loadAccess, paddleEnv]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setEmail(data.session?.user.email ?? null);
       setAuthReady(true);
-      if (data.session) void refreshAccess();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       setEmail(session?.user.email ?? null);
-      if (session) void refreshAccess();
-      else setAccess(null);
     });
     return () => sub.subscription.unsubscribe();
-  }, [refreshAccess]);
-
-  // After a completed checkout the receipt arrives moments later — poll briefly.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!new URLSearchParams(window.location.search).get("checkout")) return;
-    let tries = 0;
-    const t = setInterval(async () => {
-      tries += 1;
-      const next = await refreshAccess();
-      if (next?.unlocked || tries >= 10) clearInterval(t);
-    }, 2000);
-    return () => clearInterval(t);
-  }, [refreshAccess]);
-
-  const buyUnlock = useCallback(async () => {
-    try {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
-      await openCheckout({
-        priceId: UNLOCK_PRICE_ID,
-        customerEmail: data.user.email ?? undefined,
-        customData: { userId: data.user.id },
-        successUrl: `${window.location.origin}/?checkout=success`,
-      });
-    } catch (e) {
-      console.error(e);
-      setError("Could not open checkout. Please try again.");
-    }
-  }, [openCheckout]);
+  }, []);
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    setAccess(null);
     setEmail(null);
   }, []);
 
   const signedIn = !!email;
-  const paywalled = signedIn && !!access && !access.canRun;
 
   const analyze = useCallback(async () => {
     if (!form.change.trim()) {
@@ -254,28 +201,25 @@ function FunnelDoc() {
     setError("");
     setLoading(true);
     try {
-      const r = (await run({ data: { ...form, environment: paddleEnv } })) as Result;
+      const r = (await run({ data: { ...form } })) as Result;
       setResult(r);
       setView("results");
       setChangedAnswer(null);
       setCounterfactual("");
       setFbDone(false);
-      void refreshAccess();
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("PAYMENT_REQUIRED")) {
-        setError("You've used your free investigations. Unlock unlimited runs below.");
-        void refreshAccess();
-      } else if (msg.toLowerCase().includes("unauthorized")) {
+      if (msg.toLowerCase().includes("unauthorized")) {
         setError("Please sign in to run an investigation.");
       } else {
         setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
       }
-    } finally {
+    }
+    finally {
       setLoading(false);
     }
-  }, [form, run, paddleEnv, refreshAccess]);
+  }, [form, run]);
 
   const submitValidation = useCallback(async () => {
     if (!changedAnswer) return;
@@ -314,7 +258,7 @@ function FunnelDoc() {
         padding: "0 16px 40px",
       }}
     >
-      <PaymentTestModeBanner />
+      
 
       <div
         style={{
@@ -479,7 +423,7 @@ function FunnelDoc() {
               }}
             >
               <div style={{ fontSize: 13.5, color: "#374151" }}>
-                Sign in to run an investigation. Your first 3 are free.
+                Sign in to run an investigation. It's free.
               </div>
               <Link
                 to="/auth"
@@ -498,69 +442,26 @@ function FunnelDoc() {
                 Sign in to continue
               </Link>
             </div>
-          ) : paywalled ? (
-            <div
+          ) : (
+            <button
+              onClick={analyze}
+              disabled={loading || !form.change.trim()}
               style={{
-                marginTop: 18,
-                border: "1px solid #E5E7EB",
+                width: "100%",
+                padding: 12,
                 borderRadius: 8,
-                padding: 16,
-                background: "#F9FAFB",
+                border: "none",
+                fontSize: 14,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                cursor: loading || !form.change.trim() ? "default" : "pointer",
+                marginTop: 18,
+                background: loading || !form.change.trim() ? "#F3F4F6" : "#6366F1",
+                color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
               }}
             >
-              <div style={{ fontSize: 14, fontWeight: 600 }}>You've used your 3 free investigations</div>
-              <div style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
-                Unlock unlimited investigations forever with a one-time $5 payment.
-              </div>
-              <button
-                onClick={buyUnlock}
-                disabled={checkoutLoading}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 8,
-                  border: "none",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  fontFamily: "inherit",
-                  marginTop: 14,
-                  cursor: checkoutLoading ? "default" : "pointer",
-                  background: checkoutLoading ? "#F3F4F6" : "#6366F1",
-                  color: checkoutLoading ? "#9CA3AF" : "#fff",
-                }}
-              >
-                {checkoutLoading ? "Opening checkout…" : "Unlock unlimited — $5 one-time"}
-              </button>
-            </div>
-          ) : (
-            <>
-              <button
-                onClick={analyze}
-                disabled={loading || !form.change.trim()}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  borderRadius: 8,
-                  border: "none",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  fontFamily: "inherit",
-                  cursor: loading || !form.change.trim() ? "default" : "pointer",
-                  marginTop: 18,
-                  background: loading || !form.change.trim() ? "#F3F4F6" : "#6366F1",
-                  color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
-                }}
-              >
-                {loading ? "Analyzing evidence…" : "Analyze evidence"}
-              </button>
-              {access && (
-                <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 8, textAlign: "center" }}>
-                  {access.unlocked
-                    ? "Unlimited investigations unlocked."
-                    : `${access.runsLeft} of ${access.freeLimit} free investigations left.`}
-                </div>
-              )}
-            </>
+              {loading ? "Analyzing evidence…" : "Analyze evidence"}
+            </button>
           )}
 
           {loading && (
