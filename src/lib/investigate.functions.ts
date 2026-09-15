@@ -183,7 +183,7 @@ async function callModel(apiKey: string, userContent: string): Promise<string> {
       ],
       stream: true,
       store: false,
-      reasoning: { effort: "medium", summary: "auto" },
+      reasoning: { effort: "high", summary: "auto" },
     }),
   });
 
