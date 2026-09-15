@@ -42,7 +42,13 @@ type Investigation = {
 
 type Result = {
   summary?: string;
-  evidence_strength?: { level: string; reason: string };
+  evidence_strength?: {
+    level: string;
+    reason: string;
+    signals_present?: number;
+    signals_total?: number;
+    computed?: boolean;
+  };
   known: string[];
   assumed: { claim: string; caveat?: string }[];
   unknown: (string | { item: string; why?: string })[];

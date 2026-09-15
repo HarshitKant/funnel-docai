@@ -33,6 +33,12 @@ Reasoning guardrails (mandatory):
 10. It is fully acceptable to state that the available evidence is insufficient to determine the cause.
 11. Never give generic advice ("improve UX", "talk to users") unless the supplied evidence specifically justifies it.
 
+DEPTH FLOOR (a response that misses any of these is invalid):
+- At least 2 "unknown" items, each with a non-empty "why".
+- At least 2 hypotheses whenever the supplied evidence permits more than one plausible explanation; each hypothesis MUST have a non-empty "falsified_if" and at least one item in both "evidence_for" and "evidence_against" (using the exact no-contradiction sentence from guardrail 6 when nothing genuinely weakens it).
+- Hypotheses must be genuinely competing explanations, not restatements of each other.
+- next_check MUST have a non-empty "requires" list, a "tests" list naming the hypothesis ids it discriminates between, and 2-3 "unlocks" lines.
+
 evidence_strength.level is Strong | Partial | Weak and describes how much the SUPPLIED evidence supports ACTION versus further INVESTIGATION — it is not a confidence score in your own answer. reason is one sentence.
 
 next_check is the single highest-value next investigation: which reasonable next analysis best distinguishes between the leading hypotheses for the least effort. Provide:
@@ -47,6 +53,183 @@ At most ONE alternative check. Keep every item short and scannable.
 JSON schema (follow exactly):
 {"summary":"1-2 sentences restating strictly what changed, using only supplied facts","evidence_strength":{"level":"Strong|Partial|Weak","reason":"one sentence"},"known":["fact 1","fact 2"],"assumed":[{"claim":"claim the user treats as an explanation","caveat":"why the supplied evidence does not establish this"}],"unknown":[{"item":"missing evidence","why":"what it would distinguish"}],"hypotheses":[{"id":"H1","name":"short name","summary":"one sentence, tentative phrasing","evidence_for":["..."],"evidence_against":["..."],"falsified_if":"one concrete observation that would materially weaken or eliminate it"}],"next_check":{"action":"the single highest-value next investigation","why":"1-2 sentences","tests":["H1","H2"],"requires":["..."],"estimated_effort":"Low|Medium|High","unlocks":["If ... → H1 strengthens."]},"alternative_check":{"action":"one secondary check","why":"one sentence"}}`;
 
+const MODEL = "openai/gpt-6-astra";
+
+type Signals = {
+  numbers: boolean;
+  timing: boolean;
+  detail: boolean;
+  segment: boolean;
+  diagnostic: boolean;
+  context: boolean;
+};
+
+/**
+ * Deterministic Evidence-Readiness scoring.
+ * The level is computed in code from countable properties of the SUPPLIED input
+ * plus how many discriminating unknowns remain, so the same input always yields
+ * the same level. The model only explains the input; it never sets the level.
+ */
+function scoreEvidence(
+  data: z.infer<typeof InputSchema>,
+  unknownCount: number,
+): { level: "Strong" | "Partial" | "Weak"; reason: string; signals: Signals; score: number } {
+  const evidence = data.evidence.trim();
+  const haystack = `${data.change} ${evidence} ${data.context}`;
+
+  const signals: Signals = {
+    // Both endpoints of the change are quantified.
+    numbers: /\d/.test(data.before) && /\d/.test(data.after),
+    // The change is located in time.
+    timing: data.when.trim().length > 0,
+    // Some substantive observation was supplied, not a one-liner.
+    detail: evidence.length >= 80,
+    // The change is narrowed to a slice of users/traffic.
+    segment:
+      /\b(android|ios|web|desktop|mobile|browser|safari|chrome|region|country|locale|device|segment|cohort|version|release|build|channel|campaign|source|plan|tier|new users|returning)\b/i.test(
+        haystack,
+      ),
+    // Some diagnostic trace exists beyond the metric itself.
+    diagnostic:
+      /\b(error|errors|log|logs|ticket|tickets|support|crash|latency|timeout|spinner|failure|5\d\d|4\d\d|deploy|deployment|release|experiment|a\/b|test|survey|session recording|drop-?off|step)\b/i.test(
+        `${evidence} ${data.change}`,
+      ),
+    // Enough product context to reason about mechanism.
+    context: data.context.trim().length >= 40,
+  };
+
+  const present = Object.values(signals).filter(Boolean).length;
+  const score = present;
+
+  let level: "Strong" | "Partial" | "Weak";
+  if (score >= 6 && unknownCount <= 1) level = "Strong";
+  else if (score <= 2) level = "Weak";
+  else level = "Partial";
+
+  const missing = (Object.keys(signals) as (keyof Signals)[]).filter((k) => !signals[k]);
+  const MISSING_LABEL: Record<keyof Signals, string> = {
+    numbers: "before/after values",
+    timing: "when the change happened",
+    detail: "substantive observations",
+    segment: "which segment is affected",
+    diagnostic: "diagnostic traces (errors, tickets, funnel steps)",
+    context: "product context",
+  };
+
+  const reason =
+    `${present} of 6 evidence signals supplied and ${unknownCount} discriminating ${
+      unknownCount === 1 ? "unknown" : "unknowns"
+    } still open` +
+    (missing.length
+      ? `. Missing: ${missing.map((k) => MISSING_LABEL[k]).join(", ")}.`
+      : ". No evidence signals missing.");
+
+  return { level, reason, signals, score };
+}
+
+/** Depth floor: returns the reasons a response is too thin, or an empty array. */
+function depthViolations(p: any): string[] {
+  const v: string[] = [];
+  const unknowns = Array.isArray(p.unknown) ? p.unknown : [];
+  if (unknowns.length < 2) v.push("Provide at least 2 unknown items.");
+  if (unknowns.some((u: any) => typeof u === "string" || !String(u?.why ?? "").trim()))
+    v.push('Every unknown item needs a non-empty "why".');
+
+  const hyps = Array.isArray(p.hypotheses) ? p.hypotheses : [];
+  if (hyps.length < 2) v.push("Provide at least 2 genuinely competing hypotheses.");
+  if (hyps.some((h: any) => !String(h?.falsified_if ?? "").trim()))
+    v.push('Every hypothesis needs a concrete "falsified_if".');
+  if (hyps.some((h: any) => !(Array.isArray(h?.evidence_for) && h.evidence_for.length)))
+    v.push('Every hypothesis needs at least one "evidence_for" item.');
+  if (hyps.some((h: any) => !(Array.isArray(h?.evidence_against) && h.evidence_against.length)))
+    v.push('Every hypothesis needs "evidence_against" (use the no-contradiction sentence when none exists).');
+
+  const nc = p.next_check ?? {};
+  if (!(Array.isArray(nc.requires) && nc.requires.length))
+    v.push('next_check needs a non-empty "requires" list.');
+  if (!(Array.isArray(nc.tests) && nc.tests.length)) v.push('next_check needs a "tests" list.');
+  if (!(Array.isArray(nc.unlocks) && nc.unlocks.length >= 2))
+    v.push('next_check needs 2-3 "unlocks" lines.');
+
+  return v;
+}
+
+function stripFences(text: string) {
+  let clean = String(text).trim();
+  if (clean.startsWith("```")) {
+    clean = clean.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+  }
+  return clean;
+}
+
+/**
+ * Reasoning model call on the gateway Responses API.
+ * Always streamed: reasoning runs can take minutes, and a buffered request
+ * would be severed by the platform request timeout.
+ */
+async function callModel(apiKey: string, userContent: string): Promise<string> {
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": apiKey,
+      "X-Lovable-AIG-SDK": "fetch",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      input: [
+        { role: "system", content: [{ type: "input_text", text: PROMPT }] },
+        { role: "user", content: [{ type: "input_text", text: userContent }] },
+      ],
+      stream: true,
+      store: false,
+      reasoning: { effort: "medium", summary: "auto" },
+    }),
+  });
+
+  if (!resp.ok || !resp.body) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`AI gateway ${resp.status}: ${text.slice(0, 200)}`);
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let out = "";
+  let completed = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      for (const line of part.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const evt = JSON.parse(payload);
+          if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
+            out += evt.delta;
+          } else if (evt.type === "response.completed") {
+            const texts = (evt.response?.output ?? [])
+              .flatMap((item: any) => item?.content ?? [])
+              .filter((c: any) => c?.type === "output_text")
+              .map((c: any) => c.text)
+              .join("");
+            if (texts) completed = texts;
+          }
+        } catch {
+          // ignore keep-alive / non-JSON frames
+        }
+      }
+    }
+  }
+
+  return (out || completed).trim();
+}
 
 export const investigateMetricChange = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -77,7 +260,6 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       throw new Error("PAYMENT_REQUIRED");
     }
 
-
     const lines = [
       ["What changed", data.change],
       ["Business / product context", data.context],
@@ -90,40 +272,63 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       .map(([k, v]) => `${k}: ${v}`)
       .join("\n");
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-3.7-flash",
-        messages: [
-          { role: "system", content: PROMPT },
-          {
-            role: "user",
-            content: `${lines}\n\nRespond with ONLY valid JSON. No other text.`,
-          },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
+    const baseContent = `${lines}\n\nRespond with ONLY valid JSON. No other text.`;
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`AI gateway ${resp.status}: ${text.slice(0, 200)}`);
+    let parsed: any = null;
+    let lastError = "";
+
+    // One retry when the reply is malformed or thinner than the depth floor.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const content =
+        attempt === 0
+          ? baseContent
+          : `${baseContent}\n\nYour previous response was rejected for insufficient depth. Fix these problems and return the full JSON again:\n- ${lastError}`;
+
+      const text = await callModel(apiKey, content);
+      if (!text) {
+        lastError = "Empty response.";
+        continue;
+      }
+
+      let candidate: any;
+      try {
+        candidate = JSON.parse(stripFences(text));
+      } catch {
+        lastError = "Response was not valid JSON.";
+        continue;
+      }
+
+      if (!candidate.known || !candidate.hypotheses || !candidate.next_check) {
+        lastError = "Missing known, hypotheses or next_check.";
+        continue;
+      }
+
+      if (Array.isArray(candidate.hypotheses)) candidate.hypotheses = candidate.hypotheses.slice(0, 3);
+
+      const violations = depthViolations(candidate);
+      if (violations.length && attempt === 0) {
+        lastError = violations.join("\n- ");
+        parsed = candidate; // keep as fallback if the retry fails too
+        continue;
+      }
+
+      parsed = candidate;
+      break;
     }
 
-    const json = await resp.json();
-    const text = json?.choices?.[0]?.message?.content ?? "";
-    if (!text) throw new Error("Empty AI response");
+    if (!parsed) throw new Error(`Incomplete AI response: ${lastError}`);
 
-    let clean = String(text).trim();
-    if (clean.startsWith("```")) {
-      clean = clean.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-    }
-    const parsed = JSON.parse(clean);
-    if (!parsed.known || !parsed.hypotheses || !parsed.next_check) {
-      throw new Error("Incomplete AI response");
-    }
-    if (Array.isArray(parsed.hypotheses)) parsed.hypotheses = parsed.hypotheses.slice(0, 3);
+    // Evidence Readiness is computed in code, never taken from the model.
+    const unknownCount = Array.isArray(parsed.unknown) ? parsed.unknown.length : 0;
+    const scored = scoreEvidence(data, unknownCount);
+    parsed.evidence_strength = {
+      level: scored.level,
+      reason: scored.reason,
+      signals: scored.signals,
+      signals_present: scored.score,
+      signals_total: 6,
+      computed: true,
+    };
 
     // Only successful investigations consume an allowance.
     await supabase.from("investigation_runs").insert({ user_id: userId });
