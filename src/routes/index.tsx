@@ -305,7 +305,46 @@ function FunnelDoc() {
         padding: "0 16px 40px",
       }}
     >
-      <div style={{ textAlign: "center", padding: "24px 0 8px" }}>
+      <PaymentTestModeBanner />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 12,
+          padding: "12px 0 0",
+          minHeight: 20,
+          fontSize: 12.5,
+        }}
+      >
+        {authReady && signedIn && (
+          <>
+            <span style={{ color: "#9CA3AF" }}>{email}</span>
+            <button
+              onClick={signOut}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#6366F1",
+                fontSize: 12.5,
+                fontFamily: "inherit",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        )}
+        {authReady && !signedIn && (
+          <Link to="/auth" style={{ color: "#6366F1", textDecoration: "none" }}>
+            Sign in
+          </Link>
+        )}
+      </div>
+
+      <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
         <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-0.5px" }}>
           <span style={{ color: "#6366F1" }}>Funnel</span>Doc
           <span style={{ color: "#6366F1" }}>.</span>ai
