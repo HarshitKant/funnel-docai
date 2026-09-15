@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { FREE_RUN_LIMIT } from "@/lib/access.functions";
 
 const InputSchema = z.object({
   change: z.string().min(1).max(2000),
@@ -8,6 +10,7 @@ const InputSchema = z.object({
   after: z.string().max(200).default(""),
   when: z.string().max(200).default(""),
   evidence: z.string().max(8000).default(""),
+  environment: z.enum(["sandbox", "live"]).default("sandbox"),
 });
 
 const PROMPT = `You are FunnelDoc — an investigation assistant for product and growth practitioners.
