@@ -4,3 +4,5 @@
 - [ ] Decide identity model (email sign-in vs browser-only) and unlock scope
 - [ ] Implement $5 one-time paywall after free run(s): checkout, webhook, entitlement
 - [ ] Provide preview testing steps incl. test card numbers
+
+- [ ] Confirm payout setup for US bank (Bank of America), USD payouts, during Paddle go-live verification
