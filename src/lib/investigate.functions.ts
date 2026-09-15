@@ -49,10 +49,34 @@ JSON schema (follow exactly):
 
 
 export const investigateMetricChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => InputSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+
+    const { supabase, userId } = context;
+
+    // Server-side entitlement gate: free runs, then a one-time unlock.
+    const [{ count }, { data: purchases }] = await Promise.all([
+      supabase
+        .from("investigation_runs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+      supabase
+        .from("purchases")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("environment", data.environment)
+        .eq("status", "completed")
+        .limit(1),
+    ]);
+
+    const unlocked = (purchases?.length ?? 0) > 0;
+    if (!unlocked && (count ?? 0) >= FREE_RUN_LIMIT) {
+      throw new Error("PAYMENT_REQUIRED");
+    }
+
 
     const lines = [
       ["What changed", data.change],
