@@ -6,4 +6,5 @@
 - [x] Database: purchases + investigation_runs, has_unlock (service_role only)
 - [x] Server-side gate on investigations (3 free, then $5 unlock)
 - [x] Checkout ($5 one-time) + receipt webhook registered for test and live
-- [ ] Go live: business details + payout account (Bank of America, USD) via Payments verification
+- [x] Public policy pages for Paddle review: Terms, Refund Policy, Privacy Notice (seller name: FunnelDoc.ai)
+- [ ] Go live: publish, then business details + payout account (Bank of America, USD) via Payments verification

@@ -118,6 +118,40 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+const legalLinkStyle = {
+  fontSize: 12,
+  color: "#6B7280",
+  textDecoration: "none",
+} as const;
+
+function LegalFooter() {
+  return (
+    <div
+      style={{
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        borderTop: "1px solid #E5E7EB",
+        padding: "18px 24px 28px",
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 16,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <span style={{ fontSize: 12, color: "#9CA3AF" }}>© FunnelDoc.ai</span>
+      <a href="/terms" style={legalLinkStyle}>
+        Terms &amp; Conditions
+      </a>
+      <a href="/refunds" style={legalLinkStyle}>
+        Refund Policy
+      </a>
+      <a href="/privacy" style={legalLinkStyle}>
+        Privacy Notice
+      </a>
+    </div>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -125,6 +159,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <LegalFooter />
     </QueryClientProvider>
   );
 }
