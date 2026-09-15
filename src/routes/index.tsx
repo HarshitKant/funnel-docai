@@ -419,25 +419,101 @@ function FunnelDoc() {
 
           {error && <div style={{ color: "#EF4444", fontSize: 13, marginTop: 12 }}>{error}</div>}
 
-          <button
-            onClick={analyze}
-            disabled={loading || !form.change.trim()}
-            style={{
-              width: "100%",
-              padding: 12,
-              borderRadius: 8,
-              border: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              fontFamily: "inherit",
-              cursor: loading || !form.change.trim() ? "default" : "pointer",
-              marginTop: 18,
-              background: loading || !form.change.trim() ? "#F3F4F6" : "#6366F1",
-              color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
-            }}
-          >
-            {loading ? "Analyzing evidence…" : "Analyze evidence"}
-          </button>
+          {!signedIn ? (
+            <div
+              style={{
+                marginTop: 18,
+                border: "1px solid #E5E7EB",
+                borderRadius: 8,
+                padding: 16,
+                background: "#F9FAFB",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 13.5, color: "#374151" }}>
+                Sign in to run an investigation. Your first 3 are free.
+              </div>
+              <Link
+                to="/auth"
+                style={{
+                  display: "inline-block",
+                  marginTop: 12,
+                  padding: "10px 18px",
+                  borderRadius: 8,
+                  background: "#6366F1",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  textDecoration: "none",
+                }}
+              >
+                Sign in to continue
+              </Link>
+            </div>
+          ) : paywalled ? (
+            <div
+              style={{
+                marginTop: 18,
+                border: "1px solid #E5E7EB",
+                borderRadius: 8,
+                padding: 16,
+                background: "#F9FAFB",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600 }}>You've used your 3 free investigations</div>
+              <div style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
+                Unlock unlimited investigations forever with a one-time $5 payment.
+              </div>
+              <button
+                onClick={buyUnlock}
+                disabled={checkoutLoading}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  fontFamily: "inherit",
+                  marginTop: 14,
+                  cursor: checkoutLoading ? "default" : "pointer",
+                  background: checkoutLoading ? "#F3F4F6" : "#6366F1",
+                  color: checkoutLoading ? "#9CA3AF" : "#fff",
+                }}
+              >
+                {checkoutLoading ? "Opening checkout…" : "Unlock unlimited — $5 one-time"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={analyze}
+                disabled={loading || !form.change.trim()}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  fontFamily: "inherit",
+                  cursor: loading || !form.change.trim() ? "default" : "pointer",
+                  marginTop: 18,
+                  background: loading || !form.change.trim() ? "#F3F4F6" : "#6366F1",
+                  color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
+                }}
+              >
+                {loading ? "Analyzing evidence…" : "Analyze evidence"}
+              </button>
+              {access && (
+                <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 8, textAlign: "center" }}>
+                  {access.unlocked
+                    ? "Unlimited investigations unlocked."
+                    : `${access.runsLeft} of ${access.freeLimit} free investigations left.`}
+                </div>
+              )}
+            </>
+          )}
 
           {loading && (
             <div style={{ textAlign: "center", fontSize: 12, color: "#6366F1", marginTop: 8 }}>
