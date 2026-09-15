@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      investigation_runs: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      purchases: {
+        Row: {
+          created_at: string
+          environment: string
+          id: string
+          paddle_customer_id: string | null
+          paddle_transaction_id: string
+          price_id: string
+          product_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          environment?: string
+          id?: string
+          paddle_customer_id?: string | null
+          paddle_transaction_id: string
+          price_id: string
+          product_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          id?: string
+          paddle_customer_id?: string | null
+          paddle_transaction_id?: string
+          price_id?: string
+          product_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       testimonials: {
         Row: {
           created_at: string
@@ -46,7 +100,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_unlock: {
+        Args: { check_env?: string; user_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
