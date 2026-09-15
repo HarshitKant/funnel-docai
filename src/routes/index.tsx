@@ -1,8 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { investigateMetricChange } from "@/lib/investigate.functions";
 import { submitTestimonial } from "@/lib/testimonials.functions";
+import { getAccess, type AccessState } from "@/lib/access.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { getPaddleEnvironment, UNLOCK_PRICE_ID } from "@/lib/paddle";
+import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
