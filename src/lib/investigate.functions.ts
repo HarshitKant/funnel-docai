@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 
 const InputSchema = z.object({
@@ -232,15 +231,13 @@ async function callModel(apiKey: string, userContent: string): Promise<string> {
 }
 
 export const investigateMetricChange = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => InputSchema.parse(data))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
-    const { supabase, userId } = context;
+    // Open access: no sign-in, no paywall.
 
-    // No paywall: every signed-in user can run unlimited investigations.
 
     const lines = [
       ["What changed", data.change],
@@ -311,9 +308,6 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       signals_total: 6,
       computed: true,
     };
-
-    // Only successful investigations consume an allowance.
-    await supabase.from("investigation_runs").insert({ user_id: userId });
 
     return parsed;
   });

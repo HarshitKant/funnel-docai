@@ -1,9 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { investigateMetricChange } from "@/lib/investigate.functions";
 import { submitTestimonial } from "@/lib/testimonials.functions";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -170,29 +169,6 @@ function FunnelDoc() {
 
   const set = (k: keyof Investigation, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
-  // ---- Account ----
-  const [email, setEmail] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setEmail(data.session?.user.email ?? null);
-      setAuthReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      setEmail(session?.user.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    setEmail(null);
-  }, []);
-
-  const signedIn = !!email;
-
   const analyze = useCallback(async () => {
     if (!form.change.trim()) {
       setError("Describe what changed to start an investigation.");
@@ -210,11 +186,7 @@ function FunnelDoc() {
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : "";
-      if (msg.toLowerCase().includes("unauthorized")) {
-        setError("Please sign in to run an investigation.");
-      } else {
-        setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
-      }
+      setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
     }
     finally {
       setLoading(false);
@@ -259,43 +231,6 @@ function FunnelDoc() {
       }}
     >
       
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          alignItems: "center",
-          gap: 12,
-          padding: "12px 0 0",
-          minHeight: 20,
-          fontSize: 12.5,
-        }}
-      >
-        {authReady && signedIn && (
-          <>
-            <span style={{ color: "#9CA3AF" }}>{email}</span>
-            <button
-              onClick={signOut}
-              style={{
-                border: "none",
-                background: "transparent",
-                color: "#6366F1",
-                fontSize: 12.5,
-                fontFamily: "inherit",
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
-              Sign out
-            </button>
-          </>
-        )}
-        {authReady && !signedIn && (
-          <Link to="/auth" style={{ color: "#6366F1", textDecoration: "none" }}>
-            Sign in
-          </Link>
-        )}
-      </div>
 
       <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
         <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-0.5px" }}>
@@ -411,58 +346,25 @@ function FunnelDoc() {
 
           {error && <div style={{ color: "#EF4444", fontSize: 13, marginTop: 12 }}>{error}</div>}
 
-          {!signedIn ? (
-            <div
-              style={{
-                marginTop: 18,
-                border: "1px solid #E5E7EB",
-                borderRadius: 8,
-                padding: 16,
-                background: "#F9FAFB",
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 13.5, color: "#374151" }}>
-                Sign in to run an investigation. It's free.
-              </div>
-              <Link
-                to="/auth"
-                style={{
-                  display: "inline-block",
-                  marginTop: 12,
-                  padding: "10px 18px",
-                  borderRadius: 8,
-                  background: "#6366F1",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  textDecoration: "none",
-                }}
-              >
-                Sign in to continue
-              </Link>
-            </div>
-          ) : (
-            <button
-              onClick={analyze}
-              disabled={loading || !form.change.trim()}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 8,
-                border: "none",
-                fontSize: 14,
-                fontWeight: 500,
-                fontFamily: "inherit",
-                cursor: loading || !form.change.trim() ? "default" : "pointer",
-                marginTop: 18,
-                background: loading || !form.change.trim() ? "#F3F4F6" : "#6366F1",
-                color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
-              }}
-            >
-              {loading ? "Analyzing evidence…" : "Analyze evidence"}
-            </button>
-          )}
+          <button
+            onClick={analyze}
+            disabled={loading || !form.change.trim()}
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 8,
+              border: "none",
+              fontSize: 14,
+              fontWeight: 500,
+              fontFamily: "inherit",
+              cursor: loading || !form.change.trim() ? "default" : "pointer",
+              marginTop: 18,
+              background: loading || !form.change.trim() ? "#F3F4F6" : "#6366F1",
+              color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
+            }}
+          >
+            {loading ? "Analyzing evidence…" : "Analyze evidence"}
+          </button>
 
           {loading && (
             <div style={{ textAlign: "center", fontSize: 12, color: "#6366F1", marginTop: 8 }}>
