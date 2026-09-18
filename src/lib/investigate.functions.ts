@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 
 const InputSchema = z.object({
@@ -309,9 +308,6 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       signals_total: 6,
       computed: true,
     };
-
-    // Only successful investigations consume an allowance.
-    await supabase.from("investigation_runs").insert({ user_id: userId });
 
     return parsed;
   });
