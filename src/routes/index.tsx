@@ -175,6 +175,17 @@ const sectionTitle: React.CSSProperties = {
 
 const sectionSub: React.CSSProperties = { fontSize: 12, color: "#9CA3AF", marginTop: 2 };
 
+const linkBtn: React.CSSProperties = {
+  border: "none",
+  background: "none",
+  padding: 0,
+  color: "#6366F1",
+  fontSize: 12.5,
+  fontWeight: 500,
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+
 function FunnelDoc() {
   const [form, setForm] = useState<Investigation>(EMPTY);
   const [view, setView] = useState<"input" | "results">("input");
@@ -415,7 +426,7 @@ function FunnelDoc() {
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "16px 0 20px" }}>
+      <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 6, margin: "16px 0 20px" }}>
         {([
           ["input", "Investigation"],
           ["results", "Evidence"],
@@ -760,12 +771,34 @@ function FunnelDoc() {
             </div>
           </div>
 
+          {result.locked && (
+            <Locked
+              title="Full assumptions & missing-evidence list"
+              lines={`${result.locked.assumed} assumptions and ${result.locked.unknown} more missing-evidence items, each with why it matters.`}
+              onUnlock={upgrade}
+            />
+          )}
+
           {/* Competing hypotheses */}
           <div>
             <div style={sectionTitle}>Competing hypotheses</div>
             <div style={{ ...sectionSub, marginBottom: 12 }}>Possible explanations — not findings.</div>
             <div style={{ display: "grid", gap: 10 }}>
-              {result.hypotheses.slice(0, 3).map((h, i) => (
+              {result.locked &&
+                result.hypotheses.slice(0, 1).map((h, i) => (
+                  <div key={i} style={card}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#6366F1" }}>{h.id ?? "H1"}</span>{" "}
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{h.name}</span>
+                  </div>
+                ))}
+              {result.locked && (
+                <Locked
+                  title="Evidence for / against and what would disprove each explanation"
+                  lines={`${result.locked.hypotheses} competing explanations analysed.`}
+                  onUnlock={upgrade}
+                />
+              )}
+              {!result.locked && result.hypotheses.slice(0, 3).map((h, i) => (
                 <div key={i} style={card}>
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#6366F1" }}>{h.id ?? `H${i + 1}`}</span>
@@ -822,6 +855,9 @@ function FunnelDoc() {
           </div>
 
           {/* Hero: check this next */}
+          {!result.next_check ? (
+            <Locked title="Check this next — exact steps, data to pull, effort" lines="The single highest-value next investigation for your case." onUnlock={upgrade} />
+          ) : (
           <div
             style={{
               border: "1px solid #C7D2FE",
@@ -883,6 +919,63 @@ function FunnelDoc() {
                 ))}
             </div>
           </div>
+          )}
+
+          {!!result.checklist?.length && (
+            <div style={card}>
+              <div style={sectionTitle}>Implementation checklist</div>
+              <div style={{ ...sectionSub, marginBottom: 10 }}>AI-generated · how to run the next check</div>
+              <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 5 }}>
+                {result.checklist.map((c, i) => (
+                  <li key={i} style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>{c}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {!!result.roadmap?.length && (
+            <div style={card}>
+              <div style={sectionTitle}>30-day investigation roadmap</div>
+              <div style={{ ...sectionSub, marginBottom: 10 }}>AI-generated · cheapest, most decisive checks first</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {result.roadmap.map((r, i) => (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "72px 1fr", gap: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#4338CA" }}>{r.week}</div>
+                    <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.5 }}>{r.focus}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.locked && (
+            <Locked title="Implementation checklist, 30-day roadmap & PDF download" lines="Step-by-step plan to run the investigation." onUnlock={upgrade} />
+          )}
+
+          {!result.locked && (
+            <div className="no-print">
+              <button
+                onClick={() => window.print()}
+                style={{ padding: "9px 16px", borderRadius: 8, border: "1px solid #C7D2FE", background: "#EEF2FF", color: "#4338CA", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Download PDF report
+              </button>
+            </div>
+          )}
+
+          {!!result.how_produced?.length && (
+            <div style={{ ...card, background: "#F9FAFB" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px", color: "#6B7280" }}>HOW THIS REPORT WAS PRODUCED</div>
+              <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                {result.how_produced.map((h, i) => (
+                  <div key={i} style={{ fontSize: 12, color: "#4B5563", lineHeight: 1.5 }}>• {h}</div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 8 }}>
+                AI-assisted output. Not professional, medical, legal or financial advice — verify before acting.
+              </div>
+            </div>
+          )}
 
           {result.alternative_check?.action && (
             <div style={{ ...card, background: "#FAFAFA" }}>
@@ -901,7 +994,7 @@ function FunnelDoc() {
           )}
 
           {/* Validation */}
-          <div style={{ ...card, background: "#F9FAFB" }}>
+          <div className="no-print" style={{ ...card, background: "#F9FAFB" }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Did this change what you would investigate next?</div>
             {fbDone ? (
               <div style={{ fontSize: 13, color: "#16A34A", marginTop: 10 }}>
