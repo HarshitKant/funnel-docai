@@ -27,10 +27,12 @@ function TermsPage() {
     <LegalPage title="Terms & Conditions" updated="26 September 2026">
       <Section heading="1. Who you are contracting with">
         <p>
-          FunnelDoc.ai is the legal business name of the seller operating this website and the
-          funnel preflight service available on it ("FunnelDoc", "we", "us"). By creating an
-          account, running an investigation, or otherwise using the service, you enter into an
-          agreement with FunnelDoc.ai on these terms. You can contact us about this agreement at{" "}
+          FunnelDoc.ai is the trading name of Harshit Kant, the individual seller who owns and
+          operates this website and the funnel preflight service available on it ("FunnelDoc",
+          "we", "us"). References to FunnelDoc.ai in these terms mean Harshit Kant trading as
+          FunnelDoc.ai. By creating an account, running an investigation, or otherwise using the
+          service, you enter into an agreement with Harshit Kant t/a FunnelDoc.ai on these terms.
+          You can contact us about this agreement at{" "}
           <a href="mailto:support@funneldoc.ai" style={{ color: "#6366F1" }}>
             support@funneldoc.ai
           </a>

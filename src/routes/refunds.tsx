@@ -27,10 +27,10 @@ function RefundsPage() {
     <LegalPage title="Refund Policy" updated="26 September 2026">
       <Section heading="30-day money-back guarantee">
         <p>
-          FunnelDoc.ai, the business that sells FunnelDoc Pro, offers a 30-day money-back
-          guarantee. If FunnelDoc Pro is not useful to you, you can request a full refund within 30
-          days of your order date — no explanation needed. You can cancel your subscription at any
-          time so it does not renew.
+          FunnelDoc.ai (Harshit Kant trading as FunnelDoc.ai), the seller of FunnelDoc Pro, offers
+          a 30-day money-back guarantee. If FunnelDoc Pro is not useful to you, you can request a
+          full refund within 30 days of your order date — no explanation needed. You can cancel
+          your subscription at any time so it does not renew.
         </p>
       </Section>
 
