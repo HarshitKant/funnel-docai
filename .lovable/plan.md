@@ -26,7 +26,7 @@ FREE (visible to everyone)          PAID (locked, blurred preview)
 
 ## 3. Two plans + paywall
 - **Free**: 3 reports per month, preview sections only.
-- **Pro**: full reports, unlimited runs, PDF download, hospital mode. Proposed price: $19/month, or a single report for $9. (Final prices are your call; the existing $5 unlock would be retired.)
+- **Pro**: full reports, unlimited runs, PDF download, hospital mode — **$10/month**. The existing $5 unlock is retired.
 - Sign-in comes back (email + Google), because paid access must be tied to an account.
 - Payments via the existing Paddle setup; subscription start, renewal, cancellation (access until period end) and failed-payment handling are all covered.
 
@@ -51,12 +51,11 @@ FREE (visible to everyone)          PAID (locked, blurred preview)
 
 ## Technical details
 - Auth: restore email/password + Google; `requireSupabaseAuth` on the report server fn.
-- Tables: `subscriptions` (Paddle, environment-filtered), reuse `purchases` for single reports, `investigation_runs` for monthly free quota; RLS + grants.
-- Paddle: new products `pro_monthly` (subscription) and `single_report` (one-time); webhook extended for subscription.created/updated/canceled and transaction.completed.
+- Tables: `subscriptions` (Paddle, environment-filtered), `investigation_runs` for monthly free quota; RLS + grants.
+- Paddle: new subscription product `pro_monthly` at $10/month; webhook extended for subscription.created/updated/canceled.
 - Server fn returns a redacted report object for free users (paid sections stripped server-side); full object for Pro/single-report owners.
 - PDF generated client-side from the full report only for entitled users.
 - Hospital mode: `mode` input, hospital prompt block and hospital scoring signals; spreadsheet parsed in browser with SheetJS; stage math computed in code.
 - Model stays `openai/gpt-6-astra`, high reasoning.
 
 ## Needs your input
-- Final prices (defaults above).
