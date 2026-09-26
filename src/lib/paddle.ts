@@ -41,4 +41,4 @@ export async function getPaddlePriceId(priceId: string): Promise<string> {
   return resolvePaddlePrice({ data: { priceId, environment } });
 }
 
-export const UNLOCK_PRICE_ID = "preflight_unlock_onetime";
+export const PRO_PRICE_ID = "pro_monthly";
