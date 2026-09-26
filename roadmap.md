@@ -1,10 +1,10 @@
 # FunnelDoc roadmap
 
-- [x] Audit business logic / payment gaps
-- [x] Decide identity model (email sign-in) and unlock scope (unlimited forever, 3 free runs)
-- [x] Accounts: email sign-up/sign-in page, header account row
-- [x] Database: purchases + investigation_runs, has_unlock (service_role only)
-- [x] Server-side gate on investigations (3 free, then $5 unlock)
-- [x] Checkout ($5 one-time) + receipt webhook registered for test and live
-- [x] Public policy pages for Paddle review: Terms, Refund Policy, Privacy Notice (seller name: FunnelDoc.ai)
-- [ ] Go live: publish, then business details + payout account (Bank of America, USD) via Payments verification
+- [x] Public policy pages (Terms, Refund, Privacy) — updated for $10/month Pro
+- [x] Sign-in back (email + Google)
+- [x] Free plan (3 reports/month, preview) + Pro $10/month subscription, server-enforced
+- [x] Detailed report: locked sections stripped server-side for free users, checklist, 30-day roadmap, PDF (print)
+- [x] Hygiene: PII scrub, safety notice, AI disclosure, "How this report was produced"
+- [x] Hospital mode (WhatsApp booking) + spreadsheet upload
+- [ ] Go live: publish, then Paddle verification (business details + US bank account) — needs the user
+- Brand/domain: unchanged by user decision

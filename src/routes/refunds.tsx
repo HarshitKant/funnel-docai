@@ -8,12 +8,12 @@ export const Route = createFileRoute("/refunds")({
       {
         name: "description",
         content:
-          "FunnelDoc.ai offers a 30-day money-back guarantee on the one-time unlock. Here is how to request a refund.",
+          "FunnelDoc.ai offers a 30-day money-back guarantee on FunnelDoc Pro. Here is how to request a refund.",
       },
       { property: "og:title", content: "Refund Policy — FunnelDoc.ai" },
       {
         property: "og:description",
-        content: "30-day money-back guarantee on the FunnelDoc.ai one-time unlock.",
+        content: "30-day money-back guarantee on FunnelDoc Pro.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -24,12 +24,12 @@ export const Route = createFileRoute("/refunds")({
 
 function RefundsPage() {
   return (
-    <LegalPage title="Refund Policy" updated="16 September 2026">
+    <LegalPage title="Refund Policy" updated="26 September 2026">
       <Section heading="30-day money-back guarantee">
         <p>
-          FunnelDoc.ai offers a 30-day money-back guarantee. If the one-time unlock is not useful to
-          you, you can request a full refund within 30 days of your order date — no explanation
-          needed.
+          FunnelDoc.ai offers a 30-day money-back guarantee. If FunnelDoc Pro is not useful to you,
+          you can request a full refund within 30 days of your order date — no explanation needed.
+          You can cancel your subscription at any time so it does not renew.
         </p>
       </Section>
 

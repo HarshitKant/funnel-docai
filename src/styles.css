@@ -142,3 +142,7 @@
     color: var(--color-foreground);
   }
 }
+
+@media print {
+  .no-print { display: none !important; }
+}
