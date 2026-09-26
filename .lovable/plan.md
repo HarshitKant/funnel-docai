@@ -1,33 +1,64 @@
-# FunnelDoc Hospital Mode (WhatsApp appointment funnel)
+# Rebrand + Detailed Report + Free/Paid Plans (based on Twishmay's suggestions)
 
-Note: Twishmay's written suggestions never came through (the message cut off at "Twishmay (Ex-Boss"). This plan is based on the three files shared: the WhatsApp funnel summary, the evidence sheet, and Ashima's note. When her points arrive, the plan will be updated to match them.
+Goal: turn the tool into a money-maker. Free users see a useful preview; paying users unlock the most valuable parts of a detailed report. Hospital (WhatsApp booking) funnels become a built-in use case alongside general funnels.
 
-Default scope: build Hospital Mode, and use the uploaded WhatsApp data as the first real test case.
+## 1. New generic brand + domain
+- Replace "FunnelDoc" everywhere (page titles, hero, legal pages, footer, checkout product name) with a new, flexible brand name that is not funnel-specific, so it can grow beyond funnels and beyond hospitals.
+- I will propose 5-8 short name ideas, check which domains are actually available and their yearly price, and show only available ones. You pick one; you confirm the purchase yourself (I cannot buy it without your approval).
+- The chosen domain is then connected to the published site.
 
-## What the user will see
+## 2. Detailed report with free preview
+Each run produces one full report with these sections:
 
-1. **Mode switch** at the top of the input screen: "General" (the current tool, unchanged) or "Hospital – WhatsApp booking".
-2. **Hospital input form** in place of the generic fields:
-   - Funnel stages with counts (e.g. Greeting → Intent captured → Registration → Doctor/slot selected → Payment/confirmation → Booked), editable and pre-filled with a typical path.
-   - Period and channel (WhatsApp bot, agent handoff).
-   - Tagged leak reasons with counts (the 10 leakage types from the sheet, such as registration wall, agent handoff delay, no slot available), plus free-text evidence (sample chats, agent notes).
-3. **Upload the spreadsheet** instead of typing: drop the summary Excel file and the stages, counts and leak tags fill in automatically. Nothing is sent until the user presses run.
-4. **Hospital-aware results**, same layout and style as today:
-   - Evidence Readiness (still calculated, not guessed), with hospital-specific signals: stage counts present, leak reasons tagged, sample chats supplied, slot/doctor availability data, agent response times.
-   - Evidence Ledger (Known / Assumed / Unknown) that separates "patients dropped at registration" (known) from "registration is too long" (assumed).
-   - Up to 3 competing explanations per major leak, e.g. patient intent vs bot design vs real slot shortage.
-   - One "Check this next" investigation, never a fix, never a medical judgement.
-5. **Patient-safety guardrails**: no clinical advice, and sample chats are shown only in the user's own browser session — nothing stored.
+```text
+FREE (visible to everyone)          PAID (locked, blurred preview)
+- Summary of what changed           - Full "Check this next" plan: exact steps,
+- Evidence Readiness rating           data to pull, owner, effort
+- What the data shows (Known)       - All competing explanations with evidence
+- Top 1 explanation (headline only)   for/against and "what would disprove it"
+- 1 missing-evidence item           - Full missing-evidence list + why it matters
+                                    - Implementation checklist and 30-day
+                                      investigation roadmap
+                                    - Downloadable PDF report
+```
 
-## Test case
-Run the uploaded Medanta-style data through Hospital Mode and check that the result: names the right biggest leaks from the numbers, does not blame the largest drop-off by default, and marks what the chats prove vs don't prove.
+- Locked sections show a blurred placeholder and an "Unlock full report" button.
+- Important: locked content is never sent to a free user's browser, so it cannot be revealed by inspecting the page.
+
+## 3. Two plans + paywall
+- **Free**: 3 reports per month, preview sections only.
+- **Pro**: full reports, unlimited runs, PDF download, hospital mode. Proposed price: $19/month, or a single report for $9. (Final prices are your call; the existing $5 unlock would be retired.)
+- Sign-in comes back (email + Google), because paid access must be tied to an account.
+- Payments via the existing Paddle setup; subscription start, renewal, cancellation (access until period end) and failed-payment handling are all covered.
+
+## 4. Hygiene factors (Twishmay's five)
+1. **Security**: plan checks and report locking happen on the server; limits cannot be bypassed; input length limits on every field; no secrets in the browser.
+2. **Safety**: patient chats or personal data pasted in are not stored; a warning asks users to remove names and phone numbers before submitting; no medical advice is ever given.
+3. **Moral / legal / ethical**: updated Terms, Privacy and Refund pages under the new brand; clear disclosure that output is AI-assisted and not professional advice; no dark patterns on the paywall.
+4. **Logical**: keep the strict Known / Assumed / Unknown separation, calculated readiness rating and depth checks already built.
+5. **Explainable**: every item tagged "Calculated" or "AI-generated", plus a short "How this report was produced" section in each report.
+
+## 5. Hospital mode (from the files you shared)
+- A mode switch: "General funnel" or "Hospital – WhatsApp booking".
+- Hospital mode adds stage counts (greeting to booked), the 10 leak reasons from the spreadsheet, and optional spreadsheet upload that fills the form automatically.
+- The shared WhatsApp dataset is used as the first test case.
+
+## Build order
+1. Brand name + domain choice (needs your pick).
+2. Sign-in, Free/Pro plans, paywall.
+3. Detailed report with locked sections + PDF.
+4. Hygiene updates (legal pages, safety notices, explainability).
+5. Hospital mode + test on your dataset.
 
 ## Technical details
-- `src/routes/index.tsx`: add mode toggle; hospital form section reusing existing styles; spreadsheet upload parsed in the browser (SheetJS `xlsx`) mapping sheet columns to stages/leak tags.
-- `src/lib/investigate.functions.ts`: add `mode` input; a hospital rule block appended to the existing prompt (taxonomy of 10 leak types, stage definitions, no clinical advice); hospital variant of `scoreEvidence` with 6 hospital signals; same depth floor and model settings.
-- Stage arithmetic (step conversion, share of total loss per leak tag) computed in code and passed as Known facts, so the model never does the math.
-- No new pages, no database changes, no sign-in.
+- Auth: restore email/password + Google; `requireSupabaseAuth` on the report server fn.
+- Tables: `subscriptions` (Paddle, environment-filtered), reuse `purchases` for single reports, `investigation_runs` for monthly free quota; RLS + grants.
+- Paddle: new products `pro_monthly` (subscription) and `single_report` (one-time); webhook extended for subscription.created/updated/canceled and transaction.completed.
+- Server fn returns a redacted report object for free users (paid sections stripped server-side); full object for Pro/single-report owners.
+- PDF generated client-side from the full report only for entitled users.
+- Hospital mode: `mode` input, hospital prompt block and hospital scoring signals; spreadsheet parsed in browser with SheetJS; stage math computed in code.
+- Model stays `openai/gpt-6-astra`, high reasoning.
 
-## Open questions
-- Twishmay's exact suggestions (needed to finalise priorities).
-- Who uses it: your team only, or hospital staff directly.
+## Needs your input
+- Final prices (defaults above).
+- Pick of brand name/domain from the shortlist I will show.
