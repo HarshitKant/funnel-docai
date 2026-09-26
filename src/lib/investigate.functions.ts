@@ -163,7 +163,7 @@ function scoreEvidence(
 
   const signals: Signals = {
     // Both endpoints of the change are quantified.
-    numbers: /\d/.test(data.before) && /\d/.test(data.after),
+    numbers: (/\d/.test(data.before) && /\d/.test(data.after)) || data.stages.length >= 2,
     // The change is located in time.
     timing: data.when.trim().length > 0,
     // Some substantive observation was supplied, not a one-liner.
@@ -177,7 +177,7 @@ function scoreEvidence(
     diagnostic:
       /\b(error|errors|log|logs|ticket|tickets|support|crash|latency|timeout|spinner|failure|5\d\d|4\d\d|deploy|deployment|release|experiment|a\/b|test|survey|session recording|drop-?off|step)\b/i.test(
         `${evidence} ${data.change}`,
-      ),
+      ) || data.leaks.length > 0,
     // Enough product context to reason about mechanism.
     context: data.context.trim().length >= 40,
   };
