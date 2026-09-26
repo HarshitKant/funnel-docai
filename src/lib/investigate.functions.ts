@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { computeAccess } from "./access.server";
 
 
 const InputSchema = z.object({
@@ -10,7 +12,90 @@ const InputSchema = z.object({
   when: z.string().max(200).default(""),
   evidence: z.string().max(8000).default(""),
   environment: z.enum(["sandbox", "live"]).default("sandbox"),
+  mode: z.enum(["general", "hospital"]).default("general"),
+  stages: z
+    .array(z.object({ name: z.string().trim().min(1).max(80), count: z.number().nonnegative().max(1e9) }))
+    .max(12)
+    .default([]),
+  leaks: z
+    .array(z.object({ reason: z.string().trim().min(1).max(120), count: z.number().nonnegative().max(1e9) }))
+    .max(20)
+    .default([]),
 });
+
+type Input = z.infer<typeof InputSchema>;
+
+const HOSPITAL_RULES = `
+HOSPITAL MODE (WhatsApp appointment-booking funnel):
+- The funnel is a patient booking journey on WhatsApp (e.g. greeting -> intent captured -> registration/details -> doctor/specialty & slot selection -> confirmation/payment -> booked). Agent (human) handoffs may occur at any stage.
+- Typical leak families to reason about: registration/details wall, bot misunderstanding intent, agent handoff delay or no reply, no slot / doctor unavailable, price or payment friction, location/branch mismatch, patient only wanted information (not a booking), language barrier, technical failure, patient went to call/walk-in instead.
+- Treat tagged leak reasons as LABELS assigned by someone, not proven causes: tagging may be inconsistent. Say so where relevant.
+- The largest stage drop-off is NOT automatically the biggest problem: consider whether that stage naturally filters non-booking intent.
+- NEVER give medical or clinical advice, never comment on a patient's condition, and never recommend clinical actions. Only funnel investigations.
+- Never repeat patient names, phone numbers or identifiers.`;
+
+const REPORT_EXTRAS = `
+Additionally include in the JSON:
+- "checklist": 4-6 short, concrete implementation steps for running the recommended next check (queries to run, data to pull, who to ask), each an investigation step, not a product fix.
+- "roadmap": exactly 4 items {"week":"Week 1","focus":"..."} forming a 30-day investigation plan that sequences checks from cheapest/most discriminating to most expensive, with decision points.`;
+
+/** Strip phone numbers and emails before anything leaves the server. */
+function scrubPII(text: string) {
+  return text
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email removed]")
+    .replace(/(?:\+?\d[\d\s-]{8,}\d)/g, "[number removed]");
+}
+
+function stageFacts(data: Input): string {
+  const lines: string[] = [];
+  const st = data.stages.filter((s) => s.count >= 0);
+  if (st.length >= 2) {
+    const top = st[0].count;
+    lines.push("Calculated stage conversion (computed in code, treat as facts):");
+    for (let i = 1; i < st.length; i++) {
+      const prev = st[i - 1].count;
+      const conv = prev > 0 ? ((st[i].count / prev) * 100).toFixed(1) : "n/a";
+      const lost = Math.max(0, prev - st[i].count);
+      lines.push(`- ${st[i - 1].name} -> ${st[i].name}: ${st[i].count}/${prev} (${conv}%), ${lost} lost`);
+    }
+    if (top > 0)
+      lines.push(`- Overall ${st[0].name} -> ${st[st.length - 1].name}: ${((st[st.length - 1].count / top) * 100).toFixed(1)}%`);
+  }
+  const lk = data.leaks.filter((l) => l.count > 0);
+  const total = lk.reduce((a, l) => a + l.count, 0);
+  if (lk.length && total > 0) {
+    lines.push("Tagged leak reasons (labels, not proven causes):");
+    for (const l of [...lk].sort((a, b) => b.count - a.count))
+      lines.push(`- ${l.reason}: ${l.count} (${((l.count / total) * 100).toFixed(1)}% of tagged leaks)`);
+  }
+  return lines.join("\n");
+}
+
+/** Remove the paid sections so they never reach a free user's browser. */
+function redactForFree(r: any) {
+  const hyps = Array.isArray(r.hypotheses) ? r.hypotheses : [];
+  const unk = Array.isArray(r.unknown) ? r.unknown : [];
+  return {
+    summary: r.summary,
+    evidence_strength: r.evidence_strength,
+    known: r.known,
+    assumed: [],
+    unknown: unk.slice(0, 1),
+    hypotheses: hyps.slice(0, 1).map((h: any) => ({ id: h.id, name: h.name })),
+    next_check: null,
+    alternative_check: null,
+    checklist: [],
+    roadmap: [],
+    how_produced: r.how_produced,
+    locked: {
+      hypotheses: hyps.length,
+      unknown: Math.max(0, unk.length - 1),
+      assumed: Array.isArray(r.assumed) ? r.assumed.length : 0,
+      checklist: Array.isArray(r.checklist) ? r.checklist.length : 0,
+      roadmap: Array.isArray(r.roadmap) ? r.roadmap.length : 0,
+    },
+  };
+}
 
 const PROMPT = `You are FunnelDoc — an investigation assistant for product and growth practitioners.
 A user reports a metric change and supplies whatever evidence they already have. Your job is NOT to identify a root cause. Your job is to separate evidence from assumptions and uncertainty, and to recommend the single most valuable NEXT INVESTIGATION.
@@ -70,7 +155,7 @@ type Signals = {
  * the same level. The model only explains the input; it never sets the level.
  */
 function scoreEvidence(
-  data: z.infer<typeof InputSchema>,
+  data: Input,
   unknownCount: number,
 ): { level: "Strong" | "Partial" | "Weak"; reason: string; signals: Signals; score: number } {
   const evidence = data.evidence.trim();
@@ -166,7 +251,7 @@ function stripFences(text: string) {
  * Always streamed: reasoning runs can take minutes, and a buffered request
  * would be severed by the platform request timeout.
  */
-async function callModel(apiKey: string, userContent: string): Promise<string> {
+async function callModel(apiKey: string, userContent: string, systemPrompt: string): Promise<string> {
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: {
@@ -177,7 +262,7 @@ async function callModel(apiKey: string, userContent: string): Promise<string> {
     body: JSON.stringify({
       model: MODEL,
       input: [
-        { role: "system", content: [{ type: "input_text", text: PROMPT }] },
+        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
         { role: "user", content: [{ type: "input_text", text: userContent }] },
       ],
       stream: true,
@@ -231,13 +316,25 @@ async function callModel(apiKey: string, userContent: string): Promise<string> {
 }
 
 export const investigateMetricChange = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => InputSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
-    // Open access: no sign-in, no paywall.
+    // Plan + quota enforced on the server.
+    const access = await computeAccess(context.supabase, context.userId, data.environment);
+    if (!access.canRun) throw new Error("PAYMENT_REQUIRED");
+    if (data.mode === "hospital" && access.plan !== "pro") throw new Error("PRO_REQUIRED");
 
+    data = {
+      ...data,
+      change: scrubPII(data.change),
+      context: scrubPII(data.context),
+      evidence: scrubPII(data.evidence),
+    };
+    const systemPrompt = PROMPT + (data.mode === "hospital" ? HOSPITAL_RULES : "") + REPORT_EXTRAS;
+    const facts = stageFacts(data);
 
     const lines = [
       ["What changed", data.change],
@@ -246,6 +343,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       ["Metric after", data.after],
       ["When the change happened", data.when],
       ["Evidence / observations already available", data.evidence],
+      ["Funnel data", facts],
     ]
       .filter(([, v]) => String(v).trim())
       .map(([k, v]) => `${k}: ${v}`)
@@ -263,7 +361,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
           ? baseContent
           : `${baseContent}\n\nYour previous response was rejected for insufficient depth. Fix these problems and return the full JSON again:\n- ${lastError}`;
 
-      const text = await callModel(apiKey, content);
+      const text = await callModel(apiKey, content, systemPrompt);
       if (!text) {
         lastError = "Empty response.";
         continue;
@@ -309,5 +407,16 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       computed: true,
     };
 
-    return parsed;
+    parsed.how_produced = [
+      "Evidence Readiness is calculated in code from 6 countable signals in your input — not judged by AI.",
+      facts ? "Stage conversion and leak shares are calculated in code from the numbers you entered." : null,
+      "Known / Assumed / Unknown, hypotheses and the next check are AI-generated (OpenAI reasoning model) under fixed rules that forbid stating causes as facts.",
+      "Phone numbers and emails are removed before analysis. Your inputs are not stored.",
+    ].filter(Boolean);
+
+    // Count the run only after a successful answer.
+    await context.supabase.from("investigation_runs").insert({ user_id: context.userId });
+
+    const full = access.plan === "pro";
+    return { ...(full ? { ...parsed, locked: null } : redactForFree(parsed)), plan: access.plan };
   });
