@@ -23,7 +23,7 @@ export async function parseHospitalWorkbook(file: File) {
   for (const name of wb.SheetNames) {
     const rows = XLSX.utils.sheet_to_json<any[]>(wb.Sheets[name]!, { header: 1, blankrows: true });
     for (let i = 0; i < rows.length; i++) {
-      const r = (rows[i] ?? []).map((c) => (typeof c === "string" ? c.trim() : c));
+      const r = Array.from(rows[i] ?? [], (c: any) => c).map((c) => (typeof c === "string" ? c.trim() : c));
       const low = r.map((c) => String(c ?? "").toLowerCase());
 
       if (typeof r[0] === "string" && /days covered/i.test(r[0])) {
