@@ -43,7 +43,7 @@ FREE (visible to everyone)          PAID (locked, blurred preview)
 - The shared WhatsApp dataset is used as the first test case.
 
 ## Build order
-1. Brand name + domain choice (needs your pick).
+1. (Brand and domain: no change.)
 2. Sign-in, Free/Pro plans, paywall.
 3. Detailed report with locked sections + PDF.
 4. Hygiene updates (legal pages, safety notices, explainability).
@@ -60,4 +60,3 @@ FREE (visible to everyone)          PAID (locked, blurred preview)
 
 ## Needs your input
 - Final prices (defaults above).
-- Pick of brand name/domain from the shortlist I will show.
