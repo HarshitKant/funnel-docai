@@ -27,9 +27,13 @@ function PrivacyPage() {
     <LegalPage title="Privacy Notice" updated="16 September 2026">
       <Section heading="Who we are">
         <p>
-          FunnelDoc.ai ("FunnelDoc", "we", "us") operates this website and service. We are the data
-          controller for the personal data described here, which means we decide why and how it is
-          used.
+          FunnelDoc.ai is the legal business name of the seller operating this website and service
+          ("FunnelDoc", "we", "us"). We are the data controller for the personal data described
+          here, which means we decide why and how it is used. You can reach us about your data at{" "}
+          <a href="mailto:support@funneldoc.ai" style={{ color: "#6366F1" }}>
+            support@funneldoc.ai
+          </a>
+          .
         </p>
       </Section>
 

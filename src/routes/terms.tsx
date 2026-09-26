@@ -27,9 +27,14 @@ function TermsPage() {
     <LegalPage title="Terms & Conditions" updated="16 September 2026">
       <Section heading="1. Who you are contracting with">
         <p>
-          FunnelDoc.ai ("FunnelDoc", "we", "us") operates this website and the funnel preflight
-          service available on it. By creating an account, running an investigation, or otherwise
-          using the service, you enter into an agreement with FunnelDoc.ai on these terms.
+          FunnelDoc.ai is the legal business name of the seller operating this website and the
+          funnel preflight service available on it ("FunnelDoc", "we", "us"). By creating an
+          account, running an investigation, or otherwise using the service, you enter into an
+          agreement with FunnelDoc.ai on these terms. You can contact us about this agreement at{" "}
+          <a href="mailto:support@funneldoc.ai" style={{ color: "#6366F1" }}>
+            support@funneldoc.ai
+          </a>
+          .
         </p>
       </Section>
 
