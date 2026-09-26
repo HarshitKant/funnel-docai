@@ -12,7 +12,6 @@ const InputSchema = z.object({
   when: z.string().max(200).default(""),
   evidence: z.string().max(8000).default(""),
   environment: z.enum(["sandbox", "live"]).default("sandbox"),
-  mode: z.enum(["general", "hospital"]).default("general"),
   stages: z
     .array(z.object({ name: z.string().trim().min(1).max(80), count: z.number().nonnegative().max(1e9) }))
     .max(12)
@@ -24,15 +23,6 @@ const InputSchema = z.object({
 });
 
 type Input = z.infer<typeof InputSchema>;
-
-const HOSPITAL_RULES = `
-HOSPITAL MODE (WhatsApp appointment-booking funnel):
-- The funnel is a patient booking journey on WhatsApp (e.g. greeting -> intent captured -> registration/details -> doctor/specialty & slot selection -> confirmation/payment -> booked). Agent (human) handoffs may occur at any stage.
-- Typical leak families to reason about: registration/details wall, bot misunderstanding intent, agent handoff delay or no reply, no slot / doctor unavailable, price or payment friction, location/branch mismatch, patient only wanted information (not a booking), language barrier, technical failure, patient went to call/walk-in instead.
-- Treat tagged leak reasons as LABELS assigned by someone, not proven causes: tagging may be inconsistent. Say so where relevant.
-- The largest stage drop-off is NOT automatically the biggest problem: consider whether that stage naturally filters non-booking intent.
-- NEVER give medical or clinical advice, never comment on a patient's condition, and never recommend clinical actions. Only funnel investigations.
-- Never repeat patient names, phone numbers or identifiers.`;
 
 const REPORT_EXTRAS = `
 Additionally include in the JSON:
@@ -325,7 +315,6 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
     // Plan + quota enforced on the server.
     const access = await computeAccess(context.supabase, context.userId, data.environment);
     if (!access.canRun) throw new Error("PAYMENT_REQUIRED");
-    if (data.mode === "hospital" && access.plan !== "pro") throw new Error("PRO_REQUIRED");
 
     data = {
       ...data,
@@ -333,7 +322,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       context: scrubPII(data.context),
       evidence: scrubPII(data.evidence),
     };
-    const systemPrompt = PROMPT + (data.mode === "hospital" ? HOSPITAL_RULES : "") + REPORT_EXTRAS;
+    const systemPrompt = PROMPT + REPORT_EXTRAS;
     const facts = stageFacts(data);
 
     const lines = [
