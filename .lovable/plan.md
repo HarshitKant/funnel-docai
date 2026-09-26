@@ -53,9 +53,8 @@ FREE (visible to everyone)          PAID (locked, blurred preview)
 - Auth: restore email/password + Google; `requireSupabaseAuth` on the report server fn.
 - Tables: `subscriptions` (Paddle, environment-filtered), `investigation_runs` for monthly free quota; RLS + grants.
 - Paddle: new subscription product `pro_monthly` at $10/month; webhook extended for subscription.created/updated/canceled.
-- Server fn returns a redacted report object for free users (paid sections stripped server-side); full object for Pro/single-report owners.
+- Server fn returns a redacted report object for free users (paid sections stripped server-side); full object for Pro subscribers.
 - PDF generated client-side from the full report only for entitled users.
 - Hospital mode: `mode` input, hospital prompt block and hospital scoring signals; spreadsheet parsed in browser with SheetJS; stage math computed in code.
 - Model stays `openai/gpt-6-astra`, high reasoning.
 
-## Needs your input
