@@ -126,8 +126,8 @@ function TermsPage() {
       <Section heading="10. Payment, billing and cancellation">
         <p>
           FunnelDoc has a Free plan (3 reports per calendar month, preview sections only) and a Pro
-          plan ($10 per month) that unlocks full reports, unlimited runs, PDF download and hospital
-          mode. Pro renews automatically each month until you cancel. If you cancel, you keep Pro
+          plan ($10 per month) that unlocks full reports, unlimited runs, and PDF download.
+          Pro renews automatically each month until you cancel. If you cancel, you keep Pro
           access until the end of the period you have paid for. Prices are shown before checkout and
           may include tax depending on your location.
         </p>

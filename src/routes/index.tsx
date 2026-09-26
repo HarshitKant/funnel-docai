@@ -312,7 +312,7 @@ function FunnelDoc() {
     finally {
       setLoading(false);
     }
-  }, [form, run, env, mode, stages, leaks, refreshAccess]);
+  }, [form, run, env, refreshAccess]);
 
   const submitValidation = useCallback(async () => {
     if (!changedAnswer) return;

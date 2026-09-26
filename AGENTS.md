@@ -12,4 +12,3 @@
 ## Architecture rules
 - Plan/quota logic lives only in `src/lib/access.server.ts` (`computeAccess`) — one source of truth for free vs Pro, used by every server fn.
 - Paid report sections are stripped server-side (`redactForFree` in investigate.functions.ts) — never hide paid content only in the UI.
-- Hospital spreadsheets are parsed in the browser (`src/lib/hospital-sheet.ts`, SheetJS) and only numbers are sent — chat text/phone numbers never leave the device.
