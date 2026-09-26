@@ -3,6 +3,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { investigateMetricChange } from "@/lib/investigate.functions";
 import { submitTestimonial } from "@/lib/testimonials.functions";
+import { getAccess, type AccessState } from "@/lib/access.functions";
+import { getCustomerPortalUrl } from "@/utils/payments.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { getPaddleEnvironment, PRO_PRICE_ID } from "@/lib/paddle";
+import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { DEFAULT_STAGES, parseHospitalWorkbook, type Leak, type Stage } from "@/lib/hospital-sheet";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -55,7 +62,7 @@ type Result = {
     evidence_against?: string[];
     falsified_if?: string;
   }[];
-  next_check: {
+  next_check: null | {
     action: string;
     why?: string;
     tests?: string[];
@@ -63,8 +70,32 @@ type Result = {
     estimated_effort?: string;
     unlocks?: string[];
   };
-  alternative_check?: { action: string; why?: string };
+  alternative_check?: { action: string; why?: string } | null;
+  checklist?: string[];
+  roadmap?: { week: string; focus: string }[];
+  how_produced?: string[];
+  plan?: "free" | "pro";
+  locked?: null | { hypotheses: number; unknown: number; assumed: number; checklist: number; roadmap: number };
 };
+
+function Locked({ title, lines, onUnlock }: { title: string; lines: string; onUnlock: () => void }) {
+  return (
+    <div style={{ position: "relative", border: "1px dashed #C7D2FE", borderRadius: 10, padding: 16, background: "#FAFAFF", overflow: "hidden" }}>
+      <div aria-hidden style={{ filter: "blur(5px)", userSelect: "none", pointerEvents: "none", display: "grid", gap: 8 }}>
+        {[88, 72, 94, 60].map((w, i) => (
+          <div key={i} style={{ height: 10, width: `${w}%`, background: "#D1D5DB", borderRadius: 4 }} />
+        ))}
+      </div>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", padding: 12 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>🔒 {title}</div>
+        <div style={{ fontSize: 12, color: "#6B7280" }}>{lines}</div>
+        <button onClick={onUnlock} style={{ marginTop: 4, padding: "7px 14px", borderRadius: 6, border: "none", background: "#6366F1", color: "#fff", fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+          Unlock full report — Pro $10/month
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const EMPTY: Investigation = { change: "", context: "", before: "", after: "", when: "", evidence: "" };
 
@@ -160,6 +191,104 @@ function FunnelDoc() {
 
   const run = useServerFn(investigateMetricChange);
   const sendFeedback = useServerFn(submitTestimonial);
+  const fetchAccess = useServerFn(getAccess);
+  const fetchPortal = useServerFn(getCustomerPortalUrl);
+  const { openCheckout, loading: checkoutLoading } = usePaddleCheckout();
+  const env = getPaddleEnvironment();
+
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [access, setAccess] = useState<AccessState | null>(null);
+  const [mode, setMode] = useState<"general" | "hospital">("general");
+  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
+  const [leaks, setLeaks] = useState<Leak[]>([]);
+  const [uploadMsg, setUploadMsg] = useState("");
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email } : null);
+      setAuthReady(true);
+    });
+    supabase.auth.getSession().then(({ data: d }) => {
+      const u = d.session?.user;
+      setUser(u ? { id: u.id, email: u.email } : null);
+      setAuthReady(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const refreshAccess = useCallback(async () => {
+    try {
+      const a = await fetchAccess({ data: { environment: env } });
+      setAccess(a);
+      return a;
+    } catch {
+      return null;
+    }
+  }, [fetchAccess, env]);
+
+  useEffect(() => {
+    if (!user) {
+      setAccess(null);
+      return;
+    }
+    refreshAccess();
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success") {
+      let tries = 0;
+      const t = setInterval(async () => {
+        tries++;
+        const a = await refreshAccess();
+        if (a?.plan === "pro" || tries >= 10) clearInterval(t);
+      }, 2500);
+      return () => clearInterval(t);
+    }
+  }, [user, refreshAccess]);
+
+  const upgrade = useCallback(() => {
+    if (!user) {
+      window.location.href = "/auth";
+      return;
+    }
+    openCheckout({
+      priceId: PRO_PRICE_ID,
+      customerEmail: user.email,
+      customData: { userId: user.id },
+      successUrl: `${window.location.origin}/?checkout=success`,
+    });
+  }, [user, openCheckout]);
+
+  const manage = useCallback(async () => {
+    try {
+      const url = await fetchPortal({ data: { environment: env } });
+      window.open(url, "_blank", "noopener");
+    } catch {
+      setError("Could not open subscription settings. Please try again.");
+    }
+  }, [fetchPortal, env]);
+
+  const onUpload = useCallback(async (f: File | undefined) => {
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) {
+      setUploadMsg("File is larger than 20 MB.");
+      return;
+    }
+    try {
+      const r = await parseHospitalWorkbook(f);
+      if (r.stages.length) setStages(r.stages);
+      if (r.leaks.length) setLeaks(r.leaks);
+      if (r.notes.length) setForm((p) => ({ ...p, evidence: [p.evidence, ...r.notes].filter(Boolean).join("\n") }));
+      setUploadMsg(
+        r.stages.length || r.leaks.length
+          ? `Filled ${r.stages.length} stages and ${r.leaks.length} leak reasons from ${f.name}. Only these numbers are used — chat text and phone numbers are not read.`
+          : "Couldn't find a 'Step / Reached' or 'Leakage type' table in this file.",
+      );
+    } catch {
+      setUploadMsg("Could not read this spreadsheet.");
+    }
+  }, []);
+
+  const hospitalLocked = mode === "hospital" && access?.plan !== "pro";
+  const outOfRuns = !!access && !access.canRun;
 
   useEffect(() => {
     if (!loading) return;
@@ -177,7 +306,16 @@ function FunnelDoc() {
     setError("");
     setLoading(true);
     try {
-      const r = (await run({ data: { ...form } })) as Result;
+      const r = (await run({
+        data: {
+          ...form,
+          environment: env,
+          mode,
+          stages: mode === "hospital" ? stages.filter((x) => x.name.trim()) : [],
+          leaks: mode === "hospital" ? leaks.filter((x) => x.reason.trim()) : [],
+        },
+      })) as Result;
+      refreshAccess();
       setResult(r);
       setView("results");
       setChangedAnswer(null);
@@ -186,12 +324,15 @@ function FunnelDoc() {
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : "";
-      setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
+      if (msg.includes("PAYMENT_REQUIRED")) setError("You've used your 3 free reports this month. Upgrade to Pro for unlimited reports.");
+      else if (msg.includes("PRO_REQUIRED")) setError("Hospital mode is part of Pro.");
+      else if (/unauthori/i.test(msg)) setError("Please sign in to run a report.");
+      else setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
     }
     finally {
       setLoading(false);
     }
-  }, [form, run]);
+  }, [form, run, env, mode, stages, leaks, refreshAccess]);
 
   const submitValidation = useCallback(async () => {
     if (!changedAnswer) return;
@@ -230,7 +371,39 @@ function FunnelDoc() {
         padding: "0 16px 40px",
       }}
     >
-      
+      <div className="no-print" style={{ margin: "0 -16px" }}>
+        <PaymentTestModeBanner />
+      </div>
+      <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, padding: "10px 0", fontSize: 12.5, color: "#6B7280", flexWrap: "wrap" }}>
+        {authReady && user ? (
+          <>
+            <span>{user.email}</span>
+            {access && (
+              <span style={{ padding: "2px 8px", borderRadius: 10, fontWeight: 600, fontSize: 11, background: access.plan === "pro" ? "#EEF2FF" : "#F3F4F6", color: access.plan === "pro" ? "#4338CA" : "#6B7280" }}>
+                {access.plan === "pro" ? "PRO" : `FREE · ${access.runsLeft}/${access.freeLimit} left this month`}
+              </span>
+            )}
+            {access?.plan === "pro" ? (
+              <button onClick={manage} style={linkBtn}>Manage subscription</button>
+            ) : (
+              <button onClick={upgrade} disabled={checkoutLoading} style={linkBtn}>Upgrade — $10/mo</button>
+            )}
+            <button onClick={() => supabase.auth.signOut()} style={linkBtn}>Sign out</button>
+          </>
+        ) : authReady ? (
+          <a href="/auth" style={{ color: "#6366F1", textDecoration: "none", fontWeight: 500 }}>Sign in</a>
+        ) : null}
+      </div>
+      {access?.pastDue && (
+        <div className="no-print" style={{ fontSize: 12.5, color: "#92400E", background: "#FEF3C7", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
+          Your last payment failed. Paddle will retry automatically — <button onClick={manage} style={linkBtn}>update your card</button>.
+        </div>
+      )}
+      {access?.plan === "pro" && access.cancelAtPeriodEnd && access.periodEnd && (
+        <div className="no-print" style={{ fontSize: 12.5, color: "#6B7280", marginBottom: 8, textAlign: "right" }}>
+          Pro ends on {new Date(access.periodEnd).toLocaleDateString()}.
+        </div>
+      )}
 
       <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
         <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-0.5px" }}>
@@ -294,7 +467,72 @@ function FunnelDoc() {
             </button>
           </div>
 
+          <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
+            {([
+              ["general", "General funnel"],
+              ["hospital", "Hospital – WhatsApp booking"],
+            ] as const).map(([k, l]) => (
+              <button
+                key={k}
+                onClick={() => setMode(k)}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                  border: "1px solid",
+                  borderColor: mode === k ? "#6366F1" : "#E5E7EB",
+                  background: mode === k ? "#EEF2FF" : "transparent",
+                  color: mode === k ? "#4338CA" : "#6B7280",
+                }}
+              >
+                {l}
+                {k === "hospital" && access?.plan !== "pro" ? " · Pro" : ""}
+              </button>
+            ))}
+          </div>
+
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
+            {mode === "hospital" && (
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: 12, background: "#FAFAFA", display: "grid", gap: 12 }}>
+                <div>
+                  <label style={label}>Upload funnel spreadsheet (optional, .xlsx)</label>
+                  <input type="file" accept=".xlsx,.xls" onChange={(e) => onUpload(e.target.files?.[0])} style={{ fontSize: 12 }} />
+                  {uploadMsg && <div style={{ fontSize: 11.5, color: "#6B7280", marginTop: 5 }}>{uploadMsg}</div>}
+                </div>
+                <div>
+                  <label style={label}>Booking stages and how many patients reached each</label>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {stages.map((st, i) => (
+                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 110px 28px", gap: 6 }}>
+                        <input value={st.name} maxLength={80} onChange={(e) => setStages((p) => p.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} style={field} />
+                        <input type="number" min={0} value={st.count || ""} placeholder="0" onChange={(e) => setStages((p) => p.map((x, j) => (j === i ? { ...x, count: Math.max(0, Number(e.target.value) || 0) } : x)))} style={field} />
+                        <button onClick={() => setStages((p) => p.filter((_, j) => j !== i))} style={{ ...linkBtn, color: "#9CA3AF" }} aria-label="Remove stage">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  {stages.length < 12 && (
+                    <button onClick={() => setStages((p) => [...p, { name: "", count: 0 }])} style={{ ...linkBtn, marginTop: 6 }}>+ Add stage</button>
+                  )}
+                </div>
+                <div>
+                  <label style={label}>Tagged leak reasons (patients who did not book)</label>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {leaks.map((lk, i) => (
+                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 110px 28px", gap: 6 }}>
+                        <input value={lk.reason} maxLength={120} onChange={(e) => setLeaks((p) => p.map((x, j) => (j === i ? { ...x, reason: e.target.value } : x)))} style={field} />
+                        <input type="number" min={0} value={lk.count || ""} placeholder="0" onChange={(e) => setLeaks((p) => p.map((x, j) => (j === i ? { ...x, count: Math.max(0, Number(e.target.value) || 0) } : x)))} style={field} />
+                        <button onClick={() => setLeaks((p) => p.filter((_, j) => j !== i))} style={{ ...linkBtn, color: "#9CA3AF" }} aria-label="Remove reason">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  {leaks.length < 20 && (
+                    <button onClick={() => setLeaks((p) => [...p, { reason: "", count: 0 }])} style={{ ...linkBtn, marginTop: 6 }}>+ Add leak reason</button>
+                  )}
+                </div>
+              </div>
+            )}
             <div>
               <label style={label}>What changed?</label>
               <textarea
@@ -344,8 +582,28 @@ function FunnelDoc() {
             </div>
           </div>
 
+          <div style={{ fontSize: 11.5, color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "7px 10px", marginTop: 12, lineHeight: 1.5 }}>
+            Remove patient or customer names before submitting. Phone numbers and emails are stripped automatically, and nothing you enter is stored. FunnelDoc suggests investigations only — never medical, legal or financial advice.
+          </div>
+
           {error && <div style={{ color: "#EF4444", fontSize: 13, marginTop: 12 }}>{error}</div>}
 
+          {authReady && !user ? (
+            <a
+              href="/auth"
+              style={{ display: "block", textAlign: "center", padding: 12, borderRadius: 8, background: "#6366F1", color: "#fff", fontSize: 14, fontWeight: 500, textDecoration: "none", marginTop: 18 }}
+            >
+              Sign in to run a report — 3 free per month
+            </a>
+          ) : outOfRuns || hospitalLocked ? (
+            <button
+              onClick={upgrade}
+              disabled={checkoutLoading}
+              style={{ width: "100%", padding: 12, borderRadius: 8, border: "none", fontSize: 14, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", marginTop: 18, background: "#6366F1", color: "#fff" }}
+            >
+              {hospitalLocked ? "Hospital mode is Pro — Upgrade for $10/month" : "You've used your free reports — Upgrade for $10/month"}
+            </button>
+          ) : (
           <button
             onClick={analyze}
             disabled={loading || !form.change.trim()}
@@ -365,6 +623,7 @@ function FunnelDoc() {
           >
             {loading ? "Analyzing evidence…" : "Analyze evidence"}
           </button>
+          )}
 
           {loading && (
             <div style={{ textAlign: "center", fontSize: 12, color: "#6366F1", marginTop: 8 }}>
