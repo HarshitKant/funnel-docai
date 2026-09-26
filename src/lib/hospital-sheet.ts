@@ -39,6 +39,7 @@ export async function parseHospitalWorkbook(file: File) {
           const n = row[stepCol];
           const c = Number(row[reachedCol]);
           if (!n || !Number.isFinite(c)) break;
+          if (/rate|%/i.test(String(n))) continue;
           stages.push({ name: String(n).slice(0, 80), count: c });
         }
       }
