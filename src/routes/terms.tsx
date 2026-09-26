@@ -24,7 +24,7 @@ export const Route = createFileRoute("/terms")({
 
 function TermsPage() {
   return (
-    <LegalPage title="Terms & Conditions" updated="16 September 2026">
+    <LegalPage title="Terms & Conditions" updated="26 September 2026">
       <Section heading="1. Who you are contracting with">
         <p>
           FunnelDoc.ai is the legal business name of the seller operating this website and the

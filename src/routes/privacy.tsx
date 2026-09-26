@@ -24,7 +24,7 @@ export const Route = createFileRoute("/privacy")({
 
 function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Notice" updated="16 September 2026">
+    <LegalPage title="Privacy Notice" updated="26 September 2026">
       <Section heading="Who we are">
         <p>
           FunnelDoc.ai is the legal business name of the seller operating this website and service
