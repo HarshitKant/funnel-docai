@@ -11,6 +11,7 @@ const InputSchema = z.object({
   after: z.string().max(200).default(""),
   when: z.string().max(200).default(""),
   evidence: z.string().max(8000).default(""),
+  userHypothesis: z.string().max(2000).default(""),
   environment: z.enum(["sandbox", "live"]).default("sandbox"),
   stages: z
     .array(z.object({ name: z.string().trim().min(1).max(80), count: z.number().nonnegative().max(1e9) }))
@@ -68,6 +69,7 @@ function redactForFree(r: any) {
   return {
     summary: r.summary,
     evidence_strength: r.evidence_strength,
+    user_hypothesis_verdict: r.user_hypothesis_verdict ?? null,
     known: r.known,
     assumed: [],
     unknown: unk.slice(0, 1),
@@ -107,11 +109,19 @@ Reasoning guardrails (mandatory):
 10. It is fully acceptable to state that the available evidence is insufficient to determine the cause.
 11. Never give generic advice ("improve UX", "talk to users") unless the supplied evidence specifically justifies it.
 
+USER HYPOTHESIS (applies when a "Your current hypothesis" is supplied):
+- Treat it as H0 — the user's own belief, NEVER a fact. If the user appears to treat it as an explanation, it also appears in "assumed" with a caveat.
+- Evaluate H0 explicitly: include it under "hypotheses" (id "H0") with evidence_for, evidence_against and falsified_if under the same rules (no invented contradictions).
+- Always include at least 2 rival hypotheses besides H0 whenever the evidence permits any plausible alternative. H0 is a competitor, not the default answer.
+- Set "user_hypothesis_verdict" based ONLY on supplied evidence: "Supported" means the supplied evidence genuinely raises H0's plausibility (never "proven"); "Undermined" means supplied evidence genuinely weakens it; "Not testable with current evidence" otherwise. reason is 1-2 sentences; settle is the concrete observation or check that would settle H0.
+- If no user hypothesis is supplied, "user_hypothesis_verdict" MUST be exactly null.
+
 DEPTH FLOOR (a response that misses any of these is invalid):
 - At least 2 "unknown" items, each with a non-empty "why".
 - At least 2 hypotheses whenever the supplied evidence permits more than one plausible explanation; each hypothesis MUST have a non-empty "falsified_if" and at least one item in both "evidence_for" and "evidence_against" (using the exact no-contradiction sentence from guardrail 6 when nothing genuinely weakens it).
 - Hypotheses must be genuinely competing explanations, not restatements of each other.
 - next_check MUST have a non-empty "requires" list, a "tests" list naming the hypothesis ids it discriminates between, and 2-3 "unlocks" lines.
+- If a "Your current hypothesis" was supplied, "user_hypothesis_verdict" MUST be present with non-empty "verdict", "reason" and "settle". If none was supplied, it MUST be exactly null.
 
 evidence_strength.level is Strong | Partial | Weak and describes how much the SUPPLIED evidence supports ACTION versus further INVESTIGATION — it is not a confidence score in your own answer. reason is one sentence.
 
@@ -125,7 +135,7 @@ next_check is the single highest-value next investigation: which reasonable next
 At most ONE alternative check. Keep every item short and scannable.
 
 JSON schema (follow exactly):
-{"summary":"1-2 sentences restating strictly what changed, using only supplied facts","evidence_strength":{"level":"Strong|Partial|Weak","reason":"one sentence"},"known":["fact 1","fact 2"],"assumed":[{"claim":"claim the user treats as an explanation","caveat":"why the supplied evidence does not establish this"}],"unknown":[{"item":"missing evidence","why":"what it would distinguish"}],"hypotheses":[{"id":"H1","name":"short name","summary":"one sentence, tentative phrasing","evidence_for":["..."],"evidence_against":["..."],"falsified_if":"one concrete observation that would materially weaken or eliminate it"}],"next_check":{"action":"the single highest-value next investigation","why":"1-2 sentences","tests":["H1","H2"],"requires":["..."],"estimated_effort":"Low|Medium|High","unlocks":["If ... → H1 strengthens."]},"alternative_check":{"action":"one secondary check","why":"one sentence"}}`;
+{"summary":"1-2 sentences restating strictly what changed, using only supplied facts","evidence_strength":{"level":"Strong|Partial|Weak","reason":"one sentence"},"known":["fact 1","fact 2"],"assumed":[{"claim":"claim the user treats as an explanation","caveat":"why the supplied evidence does not establish this"}],"unknown":[{"item":"missing evidence","why":"what it would distinguish"}],"hypotheses":[{"id":"H1","name":"short name","summary":"one sentence, tentative phrasing","evidence_for":["..."],"evidence_against":["..."],"falsified_if":"one concrete observation that would materially weaken or eliminate it"}],"next_check":{"action":"the single highest-value next investigation","why":"1-2 sentences","tests":["H1","H2"],"requires":["..."],"estimated_effort":"Low|Medium|High","unlocks":["If ... → H1 strengthens."]},"alternative_check":{"action":"one secondary check","why":"one sentence"},"user_hypothesis_verdict":null or {"verdict":"Supported|Undermined|Not testable with current evidence","reason":"1-2 sentences grounded in supplied evidence","settle":"the concrete observation or check that would settle H0"}}`;
 
 const MODEL = "openai/gpt-6-astra";
 
@@ -321,6 +331,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       change: scrubPII(data.change),
       context: scrubPII(data.context),
       evidence: scrubPII(data.evidence),
+      userHypothesis: scrubPII(data.userHypothesis),
     };
     const systemPrompt = PROMPT + REPORT_EXTRAS;
     const facts = stageFacts(data);
@@ -332,6 +343,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       ["Metric after", data.after],
       ["When the change happened", data.when],
       ["Evidence / observations already available", data.evidence],
+      ["Your current hypothesis (the user's own belief — treat as H0, never as fact)", data.userHypothesis],
       ["Funnel data", facts],
     ]
       .filter(([, v]) => String(v).trim())
@@ -369,6 +381,11 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
         continue;
       }
 
+      if (data.userHypothesis.trim() && !candidate.user_hypothesis_verdict) {
+        lastError = "Missing user_hypothesis_verdict.";
+        continue;
+      }
+
       if (Array.isArray(candidate.hypotheses)) candidate.hypotheses = candidate.hypotheses.slice(0, 3);
 
       const violations = depthViolations(candidate);
@@ -400,6 +417,9 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
       "Evidence Readiness is calculated in code from 6 countable signals in your input — not judged by AI.",
       facts ? "Stage conversion and leak shares are calculated in code from the numbers you entered." : null,
       "Known / Assumed / Unknown, hypotheses and the next check are AI-generated (OpenAI reasoning model) under fixed rules that forbid stating causes as facts.",
+      data.userHypothesis.trim()
+        ? "The verdict on your hypothesis is AI-generated from the supplied evidence only — 'Supported' never means proven."
+        : null,
       "Phone numbers and emails are removed before analysis. Your inputs are not stored.",
     ].filter(Boolean);
 
