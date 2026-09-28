@@ -569,6 +569,52 @@ function FunnelDoc() {
 
       {view === "results" && result && (
         <div style={{ display: "grid", gap: 22 }}>
+          {/* Verdict on the user's hypothesis */}
+          {result.user_hypothesis_verdict && (
+            <div
+              style={{
+                border: "1px solid #C7D2FE",
+                background: "linear-gradient(180deg,#EEF2FF 0%,#FFFFFF 80%)",
+                borderRadius: 14,
+                padding: 22,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.6px", color: "#4338CA" }}>
+                VERDICT ON YOUR HYPOTHESIS
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 12px",
+                    borderRadius: 14,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: verdictColor(result.user_hypothesis_verdict.verdict),
+                    background: verdictBg(result.user_hypothesis_verdict.verdict),
+                  }}
+                >
+                  {result.user_hypothesis_verdict.verdict}
+                </span>
+              </div>
+              {result.user_hypothesis_verdict.reason && (
+                <div style={{ fontSize: 13.5, color: "#374151", marginTop: 12, lineHeight: 1.6 }}>
+                  {result.user_hypothesis_verdict.reason}
+                </div>
+              )}
+              {result.user_hypothesis_verdict.settle && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px", color: "#6B7280" }}>
+                    SETTLED BY
+                  </div>
+                  <div style={{ fontSize: 13, color: "#111827", marginTop: 4, lineHeight: 1.5 }}>
+                    {result.user_hypothesis_verdict.settle}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Summary + evidence strength */}
           <div style={card}>
             {result.evidence_strength && (
@@ -1003,7 +1049,7 @@ function FunnelDoc() {
                 color: "#6B7280",
               }}
             >
-              ← Start another investigation
+              ← Red-team another hypothesis
             </button>
           </div>
 
