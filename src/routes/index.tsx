@@ -62,6 +62,9 @@ type Result = {
     evidence_for?: string[];
     evidence_against?: string[];
     falsified_if?: string;
+    rank?: number;
+    rank_score?: number;
+    rank_basis?: string;
   }[];
   next_check: null | {
     action: string;
@@ -752,7 +755,7 @@ function FunnelDoc() {
           {/* Competing hypotheses */}
           <div>
             <div style={sectionTitle}>Competing hypotheses</div>
-            <div style={{ ...sectionSub, marginBottom: 12 }}>Possible explanations — not findings.</div>
+            <div style={{ ...sectionSub, marginBottom: 12 }}>Possible explanations — not findings. Ranked by a fixed formula: evidence from your own input counts 3×, inferred evidence 1×, supporting minus contradicting.</div>
             <div style={{ display: "grid", gap: 10 }}>
               {result.locked &&
                 result.hypotheses.slice(0, 1).map((h, i) => (
@@ -771,9 +774,16 @@ function FunnelDoc() {
               {!result.locked && result.hypotheses.slice(0, 3).map((h, i) => (
                 <div key={i} style={card}>
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>#{h.rank ?? i + 1}</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#6366F1" }}>{h.id ?? `H${i + 1}`}</span>
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{h.name}</span>
+                    {typeof h.rank_score === "number" && (
+                      <span style={{ marginLeft: "auto", fontSize: 11, color: "#6B7280" }}>score {h.rank_score}</span>
+                    )}
                   </div>
+                  {h.rank_basis && (
+                    <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>Ranked on: {h.rank_basis}</div>
+                  )}
                   {h.summary && (
                     <div style={{ fontSize: 13, color: "#4B5563", marginTop: 6, lineHeight: 1.55 }}>{h.summary}</div>
                   )}
