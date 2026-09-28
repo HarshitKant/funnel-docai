@@ -298,6 +298,7 @@ function FunnelDoc() {
       const r = (await run({
         data: {
           ...form,
+          userHypothesis: form.hypothesis,
           environment: env,
         },
       })) as Result;
