@@ -73,7 +73,7 @@ function redactForFree(r: any) {
     known: r.known,
     assumed: [],
     unknown: unk.slice(0, 1),
-    hypotheses: hyps.slice(0, 1).map((h: any) => ({ id: h.id, name: h.name })),
+    hypotheses: hyps.slice(0, 1).map((h: any) => ({ id: h.id, name: h.name, rank: h.rank })),
     next_check: null,
     alternative_check: null,
     checklist: [],
@@ -209,6 +209,60 @@ function scoreEvidence(
       : ". No evidence signals missing.");
 
   return { level, reason, signals, score };
+}
+
+const STOP = new Set(
+  "the a an and or of to in on for with is are was were be been by at from as that this it its not no we our users user has have had but if than then into over per more less after before".split(
+    " ",
+  ),
+);
+const NO_CONTRA = "no contradictory evidence supplied yet";
+
+function tokens(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .split(/[^a-z0-9%.]+/)
+      .filter((w) => w.length > 2 && !STOP.has(w)),
+  );
+}
+
+/**
+ * Deterministic hypothesis ranking.
+ * Each evidence item counts as "grounded" when it shares at least 2 meaningful
+ * words (or a number) with what the user actually typed. Grounded items weigh 3,
+ * ungrounded (model-inferred) items weigh 1. Score = for − against.
+ * Same hypotheses + same input → same order, every time. Ties break by id.
+ */
+function rankHypotheses(hyps: any, data: Input) {
+  if (!Array.isArray(hyps)) return hyps;
+  const input = tokens(
+    [data.change, data.before, data.after, data.when, data.evidence, data.context, data.userHypothesis].join(" "),
+  );
+  const grounded = (item: string) => {
+    const t = [...tokens(String(item))].filter((w) => input.has(w));
+    return t.length >= 2 || t.some((w) => /\d/.test(w));
+  };
+  const tally = (items: any) => {
+    const list = (Array.isArray(items) ? items : []).map(String).filter((s) => !s.toLowerCase().includes(NO_CONTRA));
+    const g = list.filter(grounded).length;
+    return { grounded: g, inferred: list.length - g };
+  };
+  return hyps
+    .map((h: any) => {
+      const f = tally(h?.evidence_for);
+      const a = tally(h?.evidence_against);
+      const score = 3 * f.grounded + f.inferred - (3 * a.grounded + a.inferred);
+      return {
+        ...h,
+        rank_score: score,
+        rank_basis: `${f.grounded} supporting point${f.grounded === 1 ? "" : "s"} from your input, ${a.grounded} contradicting point${
+          a.grounded === 1 ? "" : "s"
+        } from your input, ${f.inferred + a.inferred} inferred.`,
+      };
+    })
+    .sort((x: any, y: any) => y.rank_score - x.rank_score || String(x.id).localeCompare(String(y.id)))
+    .map((h: any, i: number) => ({ ...h, rank: i + 1 }));
 }
 
 /** Depth floor: returns the reasons a response is too thin, or an empty array. */
@@ -400,6 +454,9 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
     }
 
     if (!parsed) throw new Error(`Incomplete AI response: ${lastError}`);
+
+    // Hypothesis ranking is computed in code from the user's own input, never by the model.
+    parsed.hypotheses = rankHypotheses(parsed.hypotheses, data);
 
     // Evidence Readiness is computed in code, never taken from the model.
     const unknownCount = Array.isArray(parsed.unknown) ? parsed.unknown.length : 0;
