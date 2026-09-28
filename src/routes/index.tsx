@@ -13,17 +13,17 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FunnelDoc.ai — Decide what to investigate next" },
+      { title: "FunnelDoc.ai — Red-team your funnel hypothesis" },
       {
         name: "description",
         content:
-          "Describe a metric change and the evidence you have. FunnelDoc separates what's known from what's assumed, keeps competing hypotheses honest, and tells you what to check next.",
+          "You have a hypothesis. FunnelDoc grades your evidence honestly, builds rival explanations, and returns a verdict plus the one check that settles it — before you spend a sprint on the wrong fix.",
       },
-      { property: "og:title", content: "FunnelDoc.ai — Decide what to investigate next" },
+      { property: "og:title", content: "FunnelDoc.ai — Red-team your funnel hypothesis" },
       {
         property: "og:description",
         content:
-          "Describe a metric change and the evidence you have. FunnelDoc separates what's known from what's assumed and tells you what to check next.",
+          "Bring your hypothesis. FunnelDoc tries to break it: honest evidence grading, rival explanations, a verdict, and the check that settles it.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -34,6 +34,7 @@ export const Route = createFileRoute("/")({
 
 type Investigation = {
   change: string;
+  hypothesis: string;
   context: string;
   before: string;
   after: string;
@@ -50,6 +51,7 @@ type Result = {
     signals_total?: number;
     computed?: boolean;
   };
+  user_hypothesis_verdict?: null | { verdict: string; reason?: string; settle?: string };
   known: string[];
   assumed: { claim: string; caveat?: string }[];
   unknown: (string | { item: string; why?: string })[];
@@ -96,10 +98,11 @@ function Locked({ title, lines, onUnlock }: { title: string; lines: string; onUn
   );
 }
 
-const EMPTY: Investigation = { change: "", context: "", before: "", after: "", when: "", evidence: "" };
+const EMPTY: Investigation = { change: "", hypothesis: "", context: "", before: "", after: "", when: "", evidence: "" };
 
 const SAMPLE: Investigation = {
   change: "KYC completion fell from 61% to 43% shortly after a new KYC flow was released.",
+  hypothesis: "The new KYC flow's extra verification step is dropping completion.",
   context:
     "Cross-border fintech app. Users must complete KYC before sending their first international transfer.",
   before: "61%",
@@ -117,16 +120,18 @@ const SAMPLE: Investigation = {
 };
 
 const LOADING_MSGS = [
-  "Reading your evidence…",
-  "Separating facts from interpretations…",
-  "Challenging each hypothesis…",
-  "Ranking the next check by information value…",
+  "Trying to break your hypothesis…",
+  "Grading your evidence honestly…",
+  "Building rival explanations…",
+  "Finding the check that settles it…",
 ];
 
 const levelColor = (l?: string) =>
   l === "Strong" || l === "High" ? "#16A34A" : l === "Partial" || l === "Medium" ? "#B45309" : "#DC2626";
 const levelBg = (l?: string) =>
   l === "Strong" || l === "High" ? "#DCFCE7" : l === "Partial" || l === "Medium" ? "#FEF3C7" : "#FEE2E2";
+const verdictColor = (v?: string) => (v === "Supported" ? "#16A34A" : v === "Undermined" ? "#DC2626" : "#B45309");
+const verdictBg = (v?: string) => (v === "Supported" ? "#DCFCE7" : v === "Undermined" ? "#FEE2E2" : "#FEF3C7");
 
 const READINESS_MEANING: Record<string, string> = {
   Strong:
@@ -293,6 +298,7 @@ function FunnelDoc() {
       const r = (await run({
         data: {
           ...form,
+          userHypothesis: form.hypothesis,
           environment: env,
         },
       })) as Result;
@@ -390,8 +396,8 @@ function FunnelDoc() {
           <span style={{ color: "#6366F1" }}>Funnel</span>Doc
           <span style={{ color: "#6366F1" }}>.</span>ai
         </div>
-        <div style={{ fontSize: 14, color: "#6B7280", marginTop: 6, maxWidth: 520, margin: "6px auto 0" }}>
-          FunnelDoc separates what your data shows from what it doesn’t prove.
+        <div style={{ fontSize: 14, color: "#6B7280", marginTop: 6, maxWidth: 560, margin: "6px auto 0" }}>
+          You have a hypothesis. FunnelDoc tries to break it — before you spend a sprint on the wrong fix.
         </div>
       </div>
 
@@ -426,8 +432,8 @@ function FunnelDoc() {
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <div style={sectionTitle}>Investigate a metric change</div>
-              <div style={sectionSub}>Tell FunnelDoc what changed and what evidence you already have.</div>
+              <div style={sectionTitle}>Red-team your hypothesis</div>
+              <div style={sectionSub}>State your hypothesis and your evidence. FunnelDoc will try to break it.</div>
             </div>
             <button
               onClick={() => setForm(SAMPLE)}
@@ -457,6 +463,20 @@ function FunnelDoc() {
                 placeholder="e.g. Checkout conversion fell from 31% to 24% after August 20."
                 style={{ ...field, fontSize: 14 }}
               />
+            </div>
+
+            <div>
+              <label style={label}>Your current hypothesis (optional)</label>
+              <textarea
+                value={form.hypothesis}
+                onChange={(e) => set("hypothesis", e.target.value)}
+                rows={2}
+                placeholder="e.g. The new checkout step is confusing mobile users."
+                style={field}
+              />
+              <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
+                State it plainly — FunnelDoc will try to disprove it, not agree with it.
+              </div>
             </div>
 
             <div>
@@ -536,7 +556,7 @@ function FunnelDoc() {
               color: loading || !form.change.trim() ? "#9CA3AF" : "#fff",
             }}
           >
-            {loading ? "Analyzing evidence…" : "Analyze evidence"}
+            {loading ? "Trying to break it…" : "Try to break it"}
           </button>
           )}
 
@@ -550,6 +570,52 @@ function FunnelDoc() {
 
       {view === "results" && result && (
         <div style={{ display: "grid", gap: 22 }}>
+          {/* Verdict on the user's hypothesis */}
+          {result.user_hypothesis_verdict && (
+            <div
+              style={{
+                border: "1px solid #C7D2FE",
+                background: "linear-gradient(180deg,#EEF2FF 0%,#FFFFFF 80%)",
+                borderRadius: 14,
+                padding: 22,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.6px", color: "#4338CA" }}>
+                VERDICT ON YOUR HYPOTHESIS
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "4px 12px",
+                    borderRadius: 14,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: verdictColor(result.user_hypothesis_verdict.verdict),
+                    background: verdictBg(result.user_hypothesis_verdict.verdict),
+                  }}
+                >
+                  {result.user_hypothesis_verdict.verdict}
+                </span>
+              </div>
+              {result.user_hypothesis_verdict.reason && (
+                <div style={{ fontSize: 13.5, color: "#374151", marginTop: 12, lineHeight: 1.6 }}>
+                  {result.user_hypothesis_verdict.reason}
+                </div>
+              )}
+              {result.user_hypothesis_verdict.settle && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px", color: "#6B7280" }}>
+                    SETTLED BY
+                  </div>
+                  <div style={{ fontSize: 13, color: "#111827", marginTop: 4, lineHeight: 1.5 }}>
+                    {result.user_hypothesis_verdict.settle}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Summary + evidence strength */}
           <div style={card}>
             {result.evidence_strength && (
@@ -984,7 +1050,7 @@ function FunnelDoc() {
                 color: "#6B7280",
               }}
             >
-              ← Start another investigation
+              ← Red-team another hypothesis
             </button>
           </div>
 
