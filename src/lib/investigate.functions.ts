@@ -472,6 +472,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
 
     parsed.how_produced = [
       "Evidence Readiness is calculated in code from 6 countable signals in your input — not judged by AI.",
+      "Hypothesis ranking is calculated in code: evidence that matches what you typed counts 3×, inferred evidence 1×, supporting minus contradicting — same input, same order.",
       facts ? "Stage conversion and leak shares are calculated in code from the numbers you entered." : null,
       "Known / Assumed / Unknown, hypotheses and the next check are AI-generated (OpenAI reasoning model) under fixed rules that forbid stating causes as facts.",
       data.userHypothesis.trim()
