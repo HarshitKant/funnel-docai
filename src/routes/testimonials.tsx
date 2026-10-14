@@ -30,7 +30,7 @@ export const Route = createFileRoute("/testimonials")({
   component: TestimonialsPage,
   errorComponent: ({ error }) => (
     <div role="alert" style={{ padding: 40, textAlign: "center" }}>
-      Could not load testimonials: {error.message}
+      Could not load testimonials: {(error as Error).message}
     </div>
   ),
   notFoundComponent: () => (
