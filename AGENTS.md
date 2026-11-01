@@ -11,4 +11,4 @@
 
 ## Architecture rules
 - Plan/quota logic lives only in `src/lib/access.server.ts` (`computeAccess`) — one source of truth for free vs Pro, used by every server fn.
-- Paid report sections are stripped server-side (`redactForFree` in investigate.functions.ts) — never hide paid content only in the UI.
+- Report visibility is decided by `computeAccess.fullReport`; when restricted, sections are stripped server-side (`redactForFree` in investigate.functions.ts), so the temporary full-report switch never relies on UI-only gating.

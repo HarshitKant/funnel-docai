@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const FREE_MONTHLY_LIMIT = 3;
+// Temporary full-report access; monthly run quotas and subscription status stay unchanged.
+export const FULL_REPORTS_OPEN = true;
 
 export type AccessState = {
   plan: "free" | "pro";
@@ -8,6 +10,7 @@ export type AccessState = {
   runsThisMonth: number;
   runsLeft: number;
   canRun: boolean;
+  fullReport: boolean;
   cancelAtPeriodEnd: boolean;
   periodEnd: string | null;
   pastDue: boolean;
@@ -65,6 +68,7 @@ export async function computeAccess(
     runsThisMonth,
     runsLeft,
     canRun: pro || runsLeft > 0,
+    fullReport: FULL_REPORTS_OPEN || pro,
     cancelAtPeriodEnd: !!sub?.cancel_at_period_end || sub?.status === "canceled",
     periodEnd: sub?.current_period_end ?? null,
     pastDue: sub?.status === "past_due",
