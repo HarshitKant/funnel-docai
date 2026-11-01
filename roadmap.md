@@ -1,5 +1,7 @@
 # FunnelDoc roadmap
 
+- [x] Temporarily open the complete report and PDF to Free users; remove report-unlock prompts while retaining sign-in and monthly run quotas.
+
 - [x] Public policy pages (Terms, Refund, Privacy) — updated for $10/month Pro
 - [x] Sign-in back (email + Google)
 - [x] Free plan (3 reports/month, preview) + Pro $10/month subscription, server-enforced

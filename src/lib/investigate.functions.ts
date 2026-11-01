@@ -484,6 +484,6 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
     // Count the run only after a successful answer.
     await context.supabase.from("investigation_runs").insert({ user_id: context.userId });
 
-    const full = access.plan === "pro";
+    const full = access.fullReport;
     return { ...(full ? { ...parsed, locked: null } : redactForFree(parsed)), plan: access.plan };
   });
