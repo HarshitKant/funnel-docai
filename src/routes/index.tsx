@@ -82,25 +82,6 @@ type Result = {
   locked?: null | { hypotheses: number; unknown: number; assumed: number; checklist: number; roadmap: number };
 };
 
-function Locked({ title, lines, onUnlock }: { title: string; lines: string; onUnlock: () => void }) {
-  return (
-    <div style={{ position: "relative", border: "1px dashed #C7D2FE", borderRadius: 10, padding: 16, background: "#FAFAFF", overflow: "hidden" }}>
-      <div aria-hidden style={{ filter: "blur(5px)", userSelect: "none", pointerEvents: "none", display: "grid", gap: 8 }}>
-        {[88, 72, 94, 60].map((w, i) => (
-          <div key={i} style={{ height: 10, width: `${w}%`, background: "#D1D5DB", borderRadius: 4 }} />
-        ))}
-      </div>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center", padding: 12 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600 }}>🔒 {title}</div>
-        <div style={{ fontSize: 12, color: "#6B7280" }}>{lines}</div>
-        <button onClick={onUnlock} style={{ marginTop: 4, padding: "7px 14px", borderRadius: 6, border: "none", background: "#6366F1", color: "#fff", fontSize: 12.5, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
-          Unlock full report — Pro $10/month
-        </button>
-      </div>
-    </div>
-  );
-}
-
 const EMPTY: Investigation = { change: "", hypothesis: "", context: "", before: "", after: "", when: "", evidence: "" };
 
 const SAMPLE: Investigation = {
@@ -744,34 +725,12 @@ function FunnelDoc() {
             </div>
           </div>
 
-          {result.locked && (
-            <Locked
-              title="Full assumptions & missing-evidence list"
-              lines={`${result.locked.assumed} assumptions and ${result.locked.unknown} more missing-evidence items, each with why it matters.`}
-              onUnlock={upgrade}
-            />
-          )}
-
           {/* Competing hypotheses */}
           <div>
             <div style={sectionTitle}>Competing hypotheses</div>
             <div style={{ ...sectionSub, marginBottom: 12 }}>Possible explanations — not findings. Ranked by a fixed formula: evidence from your own input counts 3×, inferred evidence 1×, supporting minus contradicting.</div>
             <div style={{ display: "grid", gap: 10 }}>
-              {result.locked &&
-                result.hypotheses.slice(0, 1).map((h, i) => (
-                  <div key={i} style={card}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#6366F1" }}>{h.id ?? "H1"}</span>{" "}
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{h.name}</span>
-                  </div>
-                ))}
-              {result.locked && (
-                <Locked
-                  title="Evidence for / against and what would disprove each explanation"
-                  lines={`${result.locked.hypotheses} competing explanations analysed.`}
-                  onUnlock={upgrade}
-                />
-              )}
-              {!result.locked && result.hypotheses.slice(0, 3).map((h, i) => (
+              {result.hypotheses.slice(0, 3).map((h, i) => (
                 <div key={i} style={card}>
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>#{h.rank ?? i + 1}</span>
@@ -835,9 +794,7 @@ function FunnelDoc() {
           </div>
 
           {/* Hero: check this next */}
-          {!result.next_check ? (
-            <Locked title="Check this next — exact steps, data to pull, effort" lines="The single highest-value next investigation for your case." onUnlock={upgrade} />
-          ) : (
+          {result.next_check && (
           <div
             style={{
               border: "1px solid #C7D2FE",
@@ -928,11 +885,6 @@ function FunnelDoc() {
             </div>
           )}
 
-          {result.locked && (
-            <Locked title="Implementation checklist, 30-day roadmap & PDF download" lines="Step-by-step plan to run the investigation." onUnlock={upgrade} />
-          )}
-
-          {!result.locked && (
             <div className="no-print">
               <button
                 onClick={() => window.print()}
@@ -941,7 +893,6 @@ function FunnelDoc() {
                 Download PDF report
               </button>
             </div>
-          )}
 
           {!!result.how_produced?.length && (
             <div style={{ ...card, background: "#F9FAFB" }}>
