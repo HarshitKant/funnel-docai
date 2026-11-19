@@ -4,11 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { investigateMetricChange } from "@/lib/investigate.functions";
 import { submitTestimonial } from "@/lib/testimonials.functions";
 import { getAccess, type AccessState } from "@/lib/access.functions";
-import { getCustomerPortalUrl } from "@/utils/payments.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { getPaddleEnvironment, PRO_PRICE_ID } from "@/lib/paddle";
-import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -191,9 +187,7 @@ function FunnelDoc() {
   const run = useServerFn(investigateMetricChange);
   const sendFeedback = useServerFn(submitTestimonial);
   const fetchAccess = useServerFn(getAccess);
-  const fetchPortal = useServerFn(getCustomerPortalUrl);
-  const { openCheckout, loading: checkoutLoading } = usePaddleCheckout();
-  const env = getPaddleEnvironment();
+  const env = "sandbox" as const;
 
   const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -228,40 +222,7 @@ function FunnelDoc() {
       return;
     }
     refreshAccess();
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success") {
-      let tries = 0;
-      const t = setInterval(async () => {
-        tries++;
-        const a = await refreshAccess();
-        if (a?.plan === "pro" || tries >= 10) clearInterval(t);
-      }, 2500);
-      return () => clearInterval(t);
-    }
   }, [user, refreshAccess]);
-
-  const upgrade = useCallback(() => {
-    if (!user) {
-      window.location.href = "/auth";
-      return;
-    }
-    openCheckout({
-      priceId: PRO_PRICE_ID,
-      customerEmail: user.email,
-      customData: { userId: user.id },
-      successUrl: `${window.location.origin}/?checkout=success`,
-    });
-  }, [user, openCheckout]);
-
-  const manage = useCallback(async () => {
-    try {
-      const url = await fetchPortal({ data: { environment: env } });
-      window.open(url, "_blank", "noopener");
-    } catch {
-      setError("Could not open subscription settings. Please try again.");
-    }
-  }, [fetchPortal, env]);
-
-  const outOfRuns = !!access && !access.canRun;
 
   useEffect(() => {
     if (!loading) return;
@@ -295,8 +256,7 @@ function FunnelDoc() {
     } catch (e) {
       console.error(e);
       const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("PAYMENT_REQUIRED")) setError("You've used your 3 free reports this month. Upgrade to Pro for unlimited reports.");
-      else if (/unauthori/i.test(msg)) setError("Please sign in to run a report.");
+      if (/unauthori/i.test(msg)) setError("Please sign in to run a report.");
       else setError(msg ? `Analysis failed: ${msg}` : "Analysis failed. Please try again.");
     }
     finally {
@@ -341,39 +301,16 @@ function FunnelDoc() {
         padding: "0 16px 40px",
       }}
     >
-      <div className="no-print" style={{ margin: "0 -16px" }}>
-        <PaymentTestModeBanner />
-      </div>
       <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, padding: "10px 0", fontSize: 12.5, color: "#6B7280", flexWrap: "wrap" }}>
         {authReady && user ? (
           <>
             <span>{user.email}</span>
-            {access && (
-              <span style={{ padding: "2px 8px", borderRadius: 10, fontWeight: 600, fontSize: 11, background: access.plan === "pro" ? "#EEF2FF" : "#F3F4F6", color: access.plan === "pro" ? "#4338CA" : "#6B7280" }}>
-                {access.plan === "pro" ? "PRO" : `FREE · ${access.runsLeft}/${access.freeLimit} left this month`}
-              </span>
-            )}
-            {access?.plan === "pro" ? (
-              <button onClick={manage} style={linkBtn}>Manage subscription</button>
-            ) : (
-              <button onClick={upgrade} disabled={checkoutLoading} style={linkBtn}>Upgrade — $10/mo</button>
-            )}
             <button onClick={() => supabase.auth.signOut()} style={linkBtn}>Sign out</button>
           </>
         ) : authReady ? (
           <a href="/auth" style={{ color: "#6366F1", textDecoration: "none", fontWeight: 500 }}>Sign in</a>
         ) : null}
       </div>
-      {access?.pastDue && (
-        <div className="no-print" style={{ fontSize: 12.5, color: "#92400E", background: "#FEF3C7", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
-          Your last payment failed. Paddle will retry automatically — <button onClick={manage} style={linkBtn}>update your card</button>.
-        </div>
-      )}
-      {access?.plan === "pro" && access.cancelAtPeriodEnd && access.periodEnd && (
-        <div className="no-print" style={{ fontSize: 12.5, color: "#6B7280", marginBottom: 8, textAlign: "right" }}>
-          Pro ends on {new Date(access.periodEnd).toLocaleDateString()}.
-        </div>
-      )}
 
       <div style={{ textAlign: "center", padding: "12px 0 8px" }}>
         <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: "-0.5px" }}>
@@ -512,16 +449,8 @@ function FunnelDoc() {
               href="/auth"
               style={{ display: "block", textAlign: "center", padding: 12, borderRadius: 8, background: "#6366F1", color: "#fff", fontSize: 14, fontWeight: 500, textDecoration: "none", marginTop: 18 }}
             >
-              Sign in to run a report — 3 free per month
+              Sign in to run a report — free
             </a>
-          ) : outOfRuns ? (
-            <button
-              onClick={upgrade}
-              disabled={checkoutLoading}
-              style={{ width: "100%", padding: 12, borderRadius: 8, border: "none", fontSize: 14, fontWeight: 500, fontFamily: "inherit", cursor: "pointer", marginTop: 18, background: "#6366F1", color: "#fff" }}
-            >
-              You've used your free reports — Upgrade for $10/month
-            </button>
           ) : (
           <button
             onClick={analyze}

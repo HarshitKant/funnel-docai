@@ -103,7 +103,7 @@ function AuthPage() {
         {mode === "signin" ? "Sign in" : "Create your account"}
       </h1>
       <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 20px" }}>
-        Free plan: 3 reports per month. Upgrade to Pro anytime.
+        Free — run as many reports as you like.
       </p>
 
       <button

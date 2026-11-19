@@ -1,12 +1,10 @@
 # FunnelDoc roadmap
 
-- [x] Temporarily open the complete report and PDF to Free users; remove report-unlock prompts while retaining sign-in and monthly run quotas.
+- [x] Payment flow removed; app is fully free — unlimited reports, complete report + PDF for everyone (user decision, Nov 2026). Paddle code deleted; legal pages kept in case payments return.
 
-- [x] Public policy pages (Terms, Refund, Privacy) — updated for $10/month Pro
+- [x] Public policy pages (Terms, Refund, Privacy)
 - [x] Sign-in back (email + Google)
-- [x] Free plan (3 reports/month, preview) + Pro $10/month subscription, server-enforced
-- [x] Detailed report: locked sections stripped server-side for free users, checklist, 30-day roadmap, PDF (print)
+- [x] Detailed report: checklist, 30-day roadmap, PDF (print)
 - [x] Hygiene: PII scrub, safety notice, AI disclosure, "How this report was produced"
 - [x] Hospital mode removed (user decision)
-- [ ] Go live: publish, then Paddle verification (business details + US bank account) — needs the user
 - Brand/domain: unchanged by user decision
