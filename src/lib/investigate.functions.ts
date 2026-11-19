@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { computeAccess } from "./access.server";
+import { extractBeforeAfter, MAX_HYPOTHESES } from "./report-rules";
 
 
 const InputSchema = z.object({
@@ -60,7 +61,8 @@ function stageFacts(data: Input): string {
       lines.push(`- ${l.reason}: ${l.count} (${((l.count / total) * 100).toFixed(1)}% of tagged leaks)`);
   }
   const num = (x: string) => { const m = x.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
-  const b = num(data.before), a = num(data.after);
+  const ba = extractBeforeAfter(data.before, data.after, data.change);
+  const b = num(ba.before), a = num(ba.after);
   if (Number.isFinite(b) && Number.isFinite(a) && b !== 0) {
     const rel = ((a - b) / Math.abs(b)) * 100;
     lines.push(`Before -> after (computed in code): ${b} -> ${a}, an absolute change of ${(a - b).toFixed(1)} and a relative change of ${rel.toFixed(1)}%. Example: per 10,000 at the start of this step, ${Math.round(b * 100)} becomes ${Math.round(a * 100)} if these are percentages. Use these numbers in plain language in the summary.`);
@@ -139,6 +141,8 @@ next_check is the single highest-value next investigation: which reasonable next
 - "tests": the hypothesis ids it discriminates between, e.g. ["H1","H2"]
 - "requires": short concrete list of data needed, e.g. ["Funnel-step data","App version","OS","Client errors"]
 - "estimated_effort": Low | Medium | High (heuristic)
+- Each hypothesis's evidence_for must cite something specific to THAT explanation; never use the headline change itself (e.g. "the rate fell from X to Y") as supporting evidence — it supports every explanation equally. If nothing specific exists, use an empty list.
+- If the user's hypothesis only restates the observed change without proposing a cause, do NOT list it as H0 among the hypotheses; set the verdict to "Not testable with current evidence" and ask for a causal mechanism in "settle".
 - "unlocks": 2-3 short conditional lines of the form "If X → H1 strengthens." explaining what the user will learn.
 At most ONE alternative check. Keep every item short and scannable.
 
@@ -171,7 +175,7 @@ function scoreEvidence(
 
   const signals: Signals = {
     // Both endpoints of the change are quantified.
-    numbers: (/\d/.test(data.before) && /\d/.test(data.after)) || data.stages.length >= 2,
+    numbers: (() => { const ba = extractBeforeAfter(data.before, data.after, data.change); return /\d/.test(ba.before) && /\d/.test(ba.after); })() || data.stages.length >= 2,
     // The change is located in time.
     timing: data.when.trim().length > 0,
     // Some substantive observation was supplied, not a one-liner.
@@ -251,14 +255,29 @@ function rankHypotheses(hyps: any, data: Input) {
     const t = [...tokens(String(item))].filter((w) => input.has(w));
     return t.length >= 2 || t.some((w) => /\d/.test(w) || w.length >= 6);
   };
-  const tally = (items: any) => {
-    const list = (Array.isArray(items) ? items : []).map(String).filter((s) => !s.toLowerCase().includes(NO_CONTRA));
+  // A supporting point that only restates the headline change and recurs across 2+ hypotheses
+  // doesn't tell explanations apart, so it scores 0.
+  const change = tokens(data.change);
+  const restatesHeadline = (item: string) => {
+    const t = [...tokens(item)];
+    const outside = t.filter((w) => !change.has(w) && !/\d/.test(w));
+    return t.some((w) => change.has(w)) && outside.length <= 3;
+  };
+  const headlineCount = new Map<string, number>();
+  for (const h of hyps) for (const e of Array.isArray(h?.evidence_for) ? h.evidence_for : []) {
+    if (restatesHeadline(String(e))) headlineCount.set("x", (headlineCount.get("x") ?? 0) + 1);
+  }
+  const sharedHeadline = (headlineCount.get("x") ?? 0) >= 2;
+  const tally = (items: any, isFor = false) => {
+    const list = (Array.isArray(items) ? items : []).map(String)
+      .filter((s) => !s.toLowerCase().includes(NO_CONTRA))
+      .filter((s) => !(isFor && sharedHeadline && restatesHeadline(s)));
     const g = list.filter(grounded).length;
     return { grounded: g, inferred: list.length - g };
   };
   return hyps
     .map((h: any) => {
-      const f = tally(h?.evidence_for);
+      const f = tally(h?.evidence_for, true);
       const a = tally(h?.evidence_against);
       const score = 3 * f.grounded + f.inferred - (3 * a.grounded + a.inferred);
       return {
@@ -448,7 +467,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
         continue;
       }
 
-      if (Array.isArray(candidate.hypotheses)) candidate.hypotheses = candidate.hypotheses.slice(0, 5);
+      if (Array.isArray(candidate.hypotheses)) candidate.hypotheses = candidate.hypotheses.slice(0, MAX_HYPOTHESES);
 
       const violations = depthViolations(candidate);
       if (violations.length && attempt === 0) {

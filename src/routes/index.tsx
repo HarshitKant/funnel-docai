@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { hunchRestatesChange } from "@/lib/report-rules";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { investigateMetricChange } from "@/lib/investigate.functions";
@@ -403,6 +404,11 @@ function FunnelDoc() {
                   Add your hunch — FunnelDoc works best when it has something to break.
                 </div>
               )}
+              {hunchRestatesChange(form.hypothesis, form.change) && (
+                <div style={{ fontSize: 12, color: "#B45309", marginTop: 4 }}>
+                  This repeats what changed. Add a cause FunnelDoc can test — e.g. "the new bureau check rejects thin-file borrowers." You can still run it as is.
+                </div>
+              )}
             </div>
 
             <div>
@@ -664,7 +670,7 @@ function FunnelDoc() {
             <div style={sectionTitle}>Competing hypotheses</div>
             <div style={{ ...sectionSub, marginBottom: 12 }}>Possible explanations — not findings. Ranked by a fixed formula: evidence from your own input counts 3×, inferred evidence 1×, supporting minus contradicting.</div>
             <div style={{ display: "grid", gap: 10 }}>
-              {result.hypotheses.slice(0, 3).map((h, i) => (
+              {result.hypotheses.map((h, i) => (
                 <div key={i} style={card}>
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#111827" }}>#{h.rank ?? i + 1}</span>
