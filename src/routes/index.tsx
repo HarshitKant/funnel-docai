@@ -398,6 +398,11 @@ function FunnelDoc() {
               <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
                 State it plainly — FunnelDoc will try to disprove it, not agree with it.
               </div>
+              {!form.hypothesis.trim() && form.change.trim() && (
+                <div style={{ fontSize: 12, color: "#B45309", marginTop: 4 }}>
+                  Add your hunch — FunnelDoc works best when it has something to break.
+                </div>
+              )}
             </div>
 
             <div>

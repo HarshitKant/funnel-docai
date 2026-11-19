@@ -59,6 +59,12 @@ function stageFacts(data: Input): string {
     for (const l of [...lk].sort((a, b) => b.count - a.count))
       lines.push(`- ${l.reason}: ${l.count} (${((l.count / total) * 100).toFixed(1)}% of tagged leaks)`);
   }
+  const num = (x: string) => { const m = x.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+  const b = num(data.before), a = num(data.after);
+  if (Number.isFinite(b) && Number.isFinite(a) && b !== 0) {
+    const rel = ((a - b) / Math.abs(b)) * 100;
+    lines.push(`Before -> after (computed in code): ${b} -> ${a}, an absolute change of ${(a - b).toFixed(1)} and a relative change of ${rel.toFixed(1)}%. Example: per 10,000 at the start of this step, ${Math.round(b * 100)} becomes ${Math.round(a * 100)} if these are percentages. Use these numbers in plain language in the summary.`);
+  }
   return lines.join("\n");
 }
 
@@ -101,7 +107,9 @@ Reasoning guardrails (mandatory):
 2. "known" contains ONLY facts explicitly supplied by the user or deterministic calculations from supplied numbers (e.g. a percentage-point delta). It answers "what can we confidently say happened?". NEVER put missing-data statements in known (e.g. "vendor latency has not been checked yet" belongs in unknown). NEVER put a causal claim in known.
 3. "assumed" contains ONLY unproven causal/interpretive claims the USER or their context already appears to treat as an explanation. Keep it small (0-2 items). Do NOT copy your own generated hypotheses here — those belong only in "hypotheses". Each item needs a short caveat explaining why the supplied evidence does not establish it.
 4. "unknown" contains missing EVIDENCE that would discriminate between competing explanations — never speculative causes. Each item is {"item":"short name of the missing evidence","why":"one short line on what it would distinguish"}.
-5. Generated hypotheses appear only under "hypotheses". Maximum 3, fewer is fine when evidence is thin.
+5. Generated hypotheses appear only under "hypotheses": 3 to 5 genuinely competing explanations. Before writing them, silently list the mechanisms typical for this industry and funnel stage (e.g. for lending: KYC, credit bureau/data vendors, underwriting rules, lending partners). Across the set, cover these categories whenever plausible: measurement/tracking/cohort definition, user or traffic mix, process/rule/product change, technical/vendor failure, external/partner/market factors. Add "category" to each hypothesis. Name concrete domain mechanisms, never vague umbrellas like "assessment changed".
+12. Plain English: write for a busy PM. No statistics jargon (avoid "reweight", "decompose", "pre-decision segments", "population reweighting"); say it simply.
+13. When timing is supplied, consider the trend shape: a sudden step points toward a release, rule or vendor change; a gradual slide points toward mix or quality drift. Use this as the alternative_check when nothing better exists.
 6. Absence of evidence is NOT automatically evidence against a hypothesis. Never invent contradictions to fill "evidence_against". Only include items that genuinely weaken the hypothesis; if none exist, evidence_against MUST be exactly ["No contradictory evidence supplied yet."].
 7. "evidence_for" only includes evidence that genuinely raises plausibility.
 8. Every hypothesis needs "falsified_if": one concrete, testable observation that would materially weaken or eliminate it.
@@ -118,7 +126,7 @@ USER HYPOTHESIS (applies when a "Your current hypothesis" is supplied):
 
 DEPTH FLOOR (a response that misses any of these is invalid):
 - At least 2 "unknown" items, each with a non-empty "why".
-- At least 2 hypotheses whenever the supplied evidence permits more than one plausible explanation; each hypothesis MUST have a non-empty "falsified_if" and at least one item in both "evidence_for" and "evidence_against" (using the exact no-contradiction sentence from guardrail 6 when nothing genuinely weakens it).
+- At least 3 hypotheses whenever the supplied evidence permits more than one plausible explanation; each hypothesis MUST have a non-empty "falsified_if" and at least one item in both "evidence_for" and "evidence_against" (using the exact no-contradiction sentence from guardrail 6 when nothing genuinely weakens it).
 - Hypotheses must be genuinely competing explanations, not restatements of each other.
 - next_check MUST have a non-empty "requires" list, a "tests" list naming the hypothesis ids it discriminates between, and 2-3 "unlocks" lines.
 - If a "Your current hypothesis" was supplied, "user_hypothesis_verdict" MUST be present with non-empty "verdict", "reason" and "settle". If none was supplied, it MUST be exactly null.
@@ -241,7 +249,7 @@ function rankHypotheses(hyps: any, data: Input) {
   );
   const grounded = (item: string) => {
     const t = [...tokens(String(item))].filter((w) => input.has(w));
-    return t.length >= 2 || t.some((w) => /\d/.test(w));
+    return t.length >= 2 || t.some((w) => /\d/.test(w) || w.length >= 6);
   };
   const tally = (items: any) => {
     const list = (Array.isArray(items) ? items : []).map(String).filter((s) => !s.toLowerCase().includes(NO_CONTRA));
@@ -274,7 +282,7 @@ function depthViolations(p: any): string[] {
     v.push('Every unknown item needs a non-empty "why".');
 
   const hyps = Array.isArray(p.hypotheses) ? p.hypotheses : [];
-  if (hyps.length < 2) v.push("Provide at least 2 genuinely competing hypotheses.");
+  if (hyps.length < 3) v.push("Provide at least 3 genuinely competing hypotheses from different categories.");
   if (hyps.some((h: any) => !String(h?.falsified_if ?? "").trim()))
     v.push('Every hypothesis needs a concrete "falsified_if".');
   if (hyps.some((h: any) => !(Array.isArray(h?.evidence_for) && h.evidence_for.length)))
@@ -440,7 +448,7 @@ export const investigateMetricChange = createServerFn({ method: "POST" })
         continue;
       }
 
-      if (Array.isArray(candidate.hypotheses)) candidate.hypotheses = candidate.hypotheses.slice(0, 3);
+      if (Array.isArray(candidate.hypotheses)) candidate.hypotheses = candidate.hypotheses.slice(0, 5);
 
       const violations = depthViolations(candidate);
       if (violations.length && attempt === 0) {
