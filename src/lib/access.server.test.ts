@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { computeAccess } from "./access.server";
+import { computeAccess } from "./access.server.ts";
 
 const anyClient = {} as unknown as Parameters<typeof computeAccess>[0];
 
