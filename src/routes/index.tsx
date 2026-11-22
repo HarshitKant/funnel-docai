@@ -492,6 +492,27 @@ function FunnelDoc() {
         </div>
       )}
 
+      {view === "input" && (
+        <div className="no-print" style={{ ...card, marginTop: 16 }}>
+          <div style={sectionTitle}>Why not just ChatGPT?</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginTop: 12 }}>
+            {[
+              ["ChatGPT agrees with you. FunnelDoc tries to disprove you.", "Your hunch is one suspect among 3–5 rival explanations."],
+              ["ChatGPT gives a list. FunnelDoc gives a decision.", "Ranked explanations and one check, with “if you see X, do Y”."],
+              ["Scores follow fixed rules, not the AI's mood.", "Same logic every run, and every score can be explained."],
+            ].map(([t, d]) => (
+              <div key={t}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{t}</div>
+                <div style={sectionSub}>{d}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ ...sectionSub, marginTop: 12, fontStyle: "italic" }}>
+            Same kind of AI underneath — the difference is the discipline around it.
+          </div>
+        </div>
+      )}
+
       {view === "results" && result && (
         <div style={{ display: "grid", gap: 22 }}>
           {/* Verdict on the user's hypothesis */}
